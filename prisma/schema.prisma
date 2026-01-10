@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum ConversationType {
+  private
+  group
+}
+
+enum ProjectStatus {
+  new
+  in_progress
+  completed
+}
+
+enum TaskStatus {
+  new
+  in_progress
+  paused
+  to_check
+  completed
+  returned
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum UserRole {
+  root
+  admin
+  project_manager
+  developer
+}
+
+enum UserStatus {
+  active
+  inactive
+  blocked
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+}
+
+model User {
+  id                Int                  @id @default(autoincrement())
+  email             String               @unique
+  name              String
+  role              UserRole
+  tel               String               @unique
+  location          String?
+  password          String
+  status            UserStatus           @default(active)
+  created_at        DateTime             @default(now())
+  updated_at        DateTime             @updatedAt
+  avatarUrl         String?              @map("avatar_url")
+
+  messagesSent      ConversationMessage[] @relation("MessageSender")
+  conversations     ConversationParticipant[]
+  tasks             Task[] 
+  projectsManaged   Project[]            @relation("ManagerProjects")
+  usersToProjects   UsersToProjects[]
+
+  @@map("users")
+}
+
+model Conversation {
+  id            Int                     @id @default(autoincrement())
+  type          ConversationType
+  createdAt     DateTime                @default(now())
+
+  participants  ConversationParticipant[]
+  messages      ConversationMessage[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             Int          @id @default(autoincrement())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId Int
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         Int
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model ConversationMessage {
+  id             Int          @id @default(autoincrement())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId Int
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  senderId       Int
+  message        String
+  createdAt      DateTime     @default(now())
+  status         MessageStatus @default(sent)
+
+  @@map("messages")
+}
+
+model Category {
+  id         Int       @id @default(autoincrement())
+  title      String    @unique
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  projects   Project[]
+
+  @@map("categories")
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?   @default("No description")
+  category_id Int
+  status      ProjectStatus @default(new)
+  manager_id  Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+  deadline    DateTime?
+
+  category    Category @relation(fields: [category_id], references: [id])
+  manager     User     @relation("ManagerProjects", fields: [manager_id], references: [id])
+  tasks       Task[]
+  users       UsersToProjects[]
+
+  @@map("projects")
+}
+
+model UsersToProjects {
+  id         Int        @id @default(autoincrement())
+  project_id Int
+  user_id    Int
+  created_at DateTime   @default(now()) @db.Timestamp(6)
+  updated_at DateTime   @default(now()) @db.Timestamp(6)
+  user_role  UserRole   @default(developer)
+  project    Project    @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_project_user")
+  user       User       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_to_projects_developer_id_fkey")
+
+  @@unique([project_id, user_id])
+  @@map("users_to_projects")
+}
+
+model Task {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  project_id  Int
+  priority    TaskPriority @default(medium)
+  assigned_to Int
+  deadline    DateTime
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @default(now())
+  status      TaskStatus  @default(new)
+
+  project     Project @relation(fields: [project_id], references: [id])
+  assignee    User    @relation(fields: [assigned_to], references: [id])
+
+  @@map("tasks")
+}
