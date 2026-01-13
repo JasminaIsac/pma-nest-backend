@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -9,48 +10,64 @@ datasource db {
 
 // Enums
 enum ConversationType {
-  private
-  group
+  PRIVATE @map("private")
+  GROUP   @map("group")
 }
 
 enum ProjectStatus {
-  new
-  in_progress
-  completed
+  NEW         @map("new")
+  IN_PROGRESS @map("in_progress")
+  COMPLETED   @map("completed")
 }
 
 enum TaskStatus {
-  new
-  in_progress
-  paused
-  to_check
-  completed
-  returned
+  NEW         @map("new")
+  IN_PROGRESS @map("in_progress")
+  PAUSED      @map("paused")
+  TO_CHECK    @map("to_check")
+  COMPLETED   @map("completed")
+  RETURNED    @map("returned")
 }
 
 enum TaskPriority {
-  low
-  medium
-  high
+  LOW      @map("low")
+  MEDIUM   @map("medium")
+  HIGH     @map("high")
 }
 
 enum UserRole {
-  root
-  admin
-  project_manager
-  developer
+  ROOT     @map("root")
+  ADMIN    @map("admin")
+  PROJECT_MANAGER @map("project_manager")
+  DEVELOPER @map("developer")
 }
 
 enum UserStatus {
-  active
-  inactive
-  blocked
+  ACTIVE   @map("active")
+  INACTIVE @map("inactive")
+  BANNED   @map("banned")
+  DELETED  @map("deleted")
 }
 
 enum MessageStatus {
-  sent
-  delivered
-  read
+  SENT     @map("sent")
+  DELIVERED @map("delivered")
+  READ     @map("read")
+}
+
+enum LogAction {
+  CREATE   @map("CREATE")
+  UPDATE   @map("UPDATE")
+  DELETE   @map("DELETE")
+  LOGIN    @map("LOGIN")
+  LOGOUT   @map("LOGOUT")
+}
+
+enum LogEntity {
+  PROJECT  @map("project")
+  TASK     @map("task")
+  USER     @map("user")
+  CATEGORY @map("category")
 }
 
 model User {
@@ -61,16 +78,18 @@ model User {
   tel               String               @unique
   location          String?
   password          String
-  status            UserStatus           @default(active)
-  created_at        DateTime             @default(now())
-  updated_at        DateTime             @updatedAt
+  status            UserStatus           @default(ACTIVE)
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
   avatarUrl         String?              @map("avatar_url")
+  deletedAt         DateTime?            @map("deleted_at")
 
   messagesSent      ConversationMessage[] @relation("MessageSender")
   conversations     ConversationParticipant[]
   tasks             Task[] 
   projectsManaged   Project[]            @relation("ManagerProjects")
   usersToProjects   UsersToProjects[]
+  logs              Log[]
 
   @@map("users")
 }
@@ -78,7 +97,9 @@ model User {
 model Conversation {
   id            Int                     @id @default(autoincrement())
   type          ConversationType
-  createdAt     DateTime                @default(now())
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+  deletedAt     DateTime?               @map("deleted_at")
 
   participants  ConversationParticipant[]
   messages      ConversationMessage[]
@@ -89,25 +110,27 @@ model Conversation {
 model ConversationParticipant {
   id             Int          @id @default(autoincrement())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId Int
+  conversationId Int          @map("conversation_id")
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         Int
-  joinedAt       DateTime     @default(now())
-  lastReadAt     DateTime?
+  userId         Int          @map("user_id")
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  lastReadAt     DateTime?    @map("last_read_at")
 
   @@unique([conversationId, userId])
   @@map("conversation_participants")
 }
 
 model ConversationMessage {
-  id             Int          @id @default(autoincrement())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId Int
-  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
-  senderId       Int
+  id             Int            @id @default(autoincrement())
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId Int            @map("conversation_id")
+  sender         User           @relation("MessageSender", fields: [senderId], references: [id])
+  senderId       Int            @map("sender_id")
   message        String
-  createdAt      DateTime     @default(now())
-  status         MessageStatus @default(sent)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  status         MessageStatus  @default(SENT)
+  deletedAt      DateTime?      @map("deleted_at")
 
   @@map("messages")
 }
@@ -115,9 +138,10 @@ model ConversationMessage {
 model Category {
   id         Int       @id @default(autoincrement())
   title      String    @unique
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
   projects   Project[]
+  deletedAt  DateTime? @map("deleted_at")
 
   @@map("categories")
 }
@@ -126,15 +150,17 @@ model Project {
   id          Int       @id @default(autoincrement())
   name        String
   description String?   @default("No description")
-  category_id Int
-  status      ProjectStatus @default(new)
-  manager_id  Int
-  created_at  DateTime @default(now())
-  updated_at  DateTime @default(now())
-  deadline    DateTime?
+  categoryId  Int       @map("category_id")
+  status      ProjectStatus @default(NEW)
+  managerId   Int       @map("manager_id")
+  coverUrl    String?   @map("cover_url")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deadline    DateTime? 
+  deletedAt   DateTime? @map("deleted_at")
 
-  category    Category @relation(fields: [category_id], references: [id])
-  manager     User     @relation("ManagerProjects", fields: [manager_id], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+  manager     User     @relation("ManagerProjects", fields: [managerId], references: [id])
   tasks       Task[]
   users       UsersToProjects[]
 
@@ -142,16 +168,17 @@ model Project {
 }
 
 model UsersToProjects {
-  id         Int        @id @default(autoincrement())
-  project_id Int
-  user_id    Int
-  created_at DateTime   @default(now()) @db.Timestamp(6)
-  updated_at DateTime   @default(now()) @db.Timestamp(6)
-  user_role  UserRole   @default(developer)
-  project    Project    @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_project_user")
-  user       User       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_to_projects_developer_id_fkey")
+  id        Int        @id @default(autoincrement())
+  projectId Int        @map("project_id")
+  userId    Int        @map("user_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  userRole  UserRole   @default(DEVELOPER) @map("user_role")
 
-  @@unique([project_id, user_id])
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_project_user")
+  user      User       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_to_projects_developer_id_fkey")
+
+  @@unique([projectId, userId])
   @@map("users_to_projects")
 }
 
@@ -159,16 +186,32 @@ model Task {
   id          Int        @id @default(autoincrement())
   title       String
   description String?
-  project_id  Int
-  priority    TaskPriority @default(medium)
-  assigned_to Int
+  projectId   Int          @map("project_id")
+  priority    TaskPriority @default(MEDIUM)
+  assignedTo  Int          @map("assigned_to")
   deadline    DateTime
-  created_at  DateTime    @default(now())
-  updated_at  DateTime    @default(now())
-  status      TaskStatus  @default(new)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  status      TaskStatus  @default(NEW)
+  deletedAt   DateTime?   @map("deleted_at")
 
-  project     Project @relation(fields: [project_id], references: [id])
-  assignee    User    @relation(fields: [assigned_to], references: [id])
+  project     Project @relation(fields: [projectId], references: [id])
+  assignee    User    @relation(fields: [assignedTo], references: [id])
 
   @@map("tasks")
+}
+
+model Log {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  entity      LogEntity 
+  entityId    Int?      @map("entity_id")
+  action      LogAction
+  before      String?   
+  after       String?   
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("logs")
 }

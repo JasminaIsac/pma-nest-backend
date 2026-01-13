@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
@@ -14,7 +13,7 @@ import { PassportModule } from '@nestjs/passport';
     }),
   ],
   controllers: [TasksController],
-  providers: [TasksService, PrismaService],
+  providers: [TasksService],
   exports: [TasksService],
 })
 export class TasksModule {}

@@ -1,14 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { Request } from 'express';
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/generated/prisma/enums';
 
 interface RequestUser {
   role: UserRole;
 }
 
+interface AuthRequest extends Request {
+  user: RequestUser;
+}
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -21,17 +23,16 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
-    const req = context.switchToHttp().getRequest();
-    const user = req.user as RequestUser;
+    const req = context.switchToHttp().getRequest<AuthRequest>();
+    const user = req.user;
     if (!user) {
-      throw new ForbiddenException('Nu există utilizator autentificat!');
+      throw new ForbiddenException('No user authenticated!');
     }
-    // Root poate orice
-    if (user.role === 'root') {
+    if (user.role === UserRole.ROOT) {
       return true;
     }
     if (!requiredRoles.includes(user.role)) {
-      throw new ForbiddenException('Nu aveți permisiunea pentru această acțiune!');
+      throw new ForbiddenException('You do not have permission for this action!');
     }
     return true;
   }

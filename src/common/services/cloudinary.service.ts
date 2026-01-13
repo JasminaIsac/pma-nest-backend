@@ -34,7 +34,6 @@ export class CloudinaryService {
         },
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       streamifier.createReadStream(fileBuffer).pipe(stream);
     });
   }
@@ -43,7 +42,6 @@ export class CloudinaryService {
     await cloudinary.uploader.destroy(publicId);
   }
 
-  // Extrage public_id dintr-un URL Cloudinary
   extractPublicId(url: string): string {
     // url ex: https://res.cloudinary.com/name/image/upload/v1765481878/project-management-app/avatars/filename.jpg
     const parts = url.split('/');

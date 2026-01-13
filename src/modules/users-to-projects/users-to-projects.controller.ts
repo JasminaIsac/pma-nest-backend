@@ -15,7 +15,7 @@ import { UpdateUserToProjectDto } from './dto/update-user-to-project.dto';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { UserRole } from 'types/enums';
+import { UserRole } from 'src/generated/prisma/enums';
 
 @ApiTags('users-to-projects')
 @Controller('users-to-projects')
@@ -26,38 +26,38 @@ export class UsersToProjectsController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Adaugă un utilizator la un proiect' })
-  @ApiResponse({ status: 201, description: 'Utilizatorul a fost adăugat cu succes' })
-  @ApiResponse({ status: 400, description: 'Validare eșuată' })
+  @ApiOperation({ summary: 'Add a new user to a project' })
+  @ApiResponse({ status: 201, description: 'User has been successfully added' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
   create(@Body() createUserToProjectDto: CreateUserToProjectDto) {
     return this.usersToProjectsService.create(createUserToProjectDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Obține toate relațiile utilizator-proiect' })
-  @ApiResponse({ status: 200, description: 'Lista relațiilor' })
+  @ApiOperation({ summary: 'Get all user-project relationships' })
+  @ApiResponse({ status: 200, description: 'List of relationships' })
   findAll() {
     return this.usersToProjectsService.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obține o relație după ID' })
-  @ApiResponse({ status: 200, description: 'Relația găsită' })
-  @ApiResponse({ status: 404, description: 'Relația nu a fost găsită' })
+  @ApiOperation({ summary: 'Get a user-project relationship by ID' })
+  @ApiResponse({ status: 200, description: 'Relationship found' })
+  @ApiResponse({ status: 404, description: 'Relationship not found' })
   findOne(@Param('id') id: string) {
     return this.usersToProjectsService.findOne(+id);
   }
 
   @Get('project/:projectId')
-  @ApiOperation({ summary: 'Obține toți utilizatorii unui proiect' })
-  @ApiResponse({ status: 200, description: 'Lista utilizatorilor proiectului' })
+  @ApiOperation({ summary: 'Get all users in a project' })
+  @ApiResponse({ status: 200, description: 'List of project users' })
   findByProject(@Param('projectId') projectId: string) {
     return this.usersToProjectsService.findByProject(+projectId);
   }
 
   @Get('user/:userId')
-  @ApiOperation({ summary: 'Obține toate proiectele unui utilizator' })
-  @ApiResponse({ status: 200, description: 'Lista proiectelor utilizatorului' })
+  @ApiOperation({ summary: 'Get all projects of a user' })
+  @ApiResponse({ status: 200, description: 'List of user projects' })
   findByUser(@Param('userId') userId: string) {
     return this.usersToProjectsService.findByUser(+userId);
   }
@@ -66,9 +66,9 @@ export class UsersToProjectsController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizează o relație utilizator-proiect' })
-  @ApiResponse({ status: 200, description: 'Relația a fost actualizată cu succes' })
-  @ApiResponse({ status: 404, description: 'Relația nu a fost găsită' })
+  @ApiOperation({ summary: 'Update a user-project relationship' })
+  @ApiResponse({ status: 200, description: 'Relationship has been successfully updated' })
+  @ApiResponse({ status: 404, description: 'Relationship not found' })
   update(@Param('id') id: string, @Body() updateUserToProjectDto: UpdateUserToProjectDto) {
     return this.usersToProjectsService.update(+id, updateUserToProjectDto);
   }
@@ -77,9 +77,9 @@ export class UsersToProjectsController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Elimină un utilizator din proiect' })
-  @ApiResponse({ status: 200, description: 'Utilizatorul a fost eliminat cu succes' })
-  @ApiResponse({ status: 404, description: 'Relația nu a fost găsită' })
+  @ApiOperation({ summary: 'Remove a user from a project' })
+  @ApiResponse({ status: 200, description: 'User has been successfully removed' })
+  @ApiResponse({ status: 404, description: 'Relationship not found' })
   remove(@Param('id') id: string) {
     return this.usersToProjectsService.remove(+id);
   }

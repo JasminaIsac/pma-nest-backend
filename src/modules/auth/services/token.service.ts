@@ -12,6 +12,7 @@ export class TokenService {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   verifyToken(token: string): any {
     return this.jwtService.verify(token);
   }

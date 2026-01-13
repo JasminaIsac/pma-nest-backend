@@ -5,25 +5,23 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/generated/prisma/enums';
 
 export class CreateUserToProjectDto {
   @ApiProperty({ example: 1 })
-  @IsInt({ message: 'ID-ul proiectului trebuie să fie un număr întreg' })
-  @IsPositive({ message: 'ID-ul proiectului trebuie să fie pozitiv' })
-  @IsNotEmpty({ message: 'ID-ul proiectului este obligatoriu' })
-  project_id: number;
+  @IsInt({ message: 'ID must be an integer' })
+  @IsPositive({ message: 'Project ID must be positive' })
+  @IsNotEmpty({ message: 'Project ID is required' })
+  projectId: number;
 
   @ApiProperty({ example: 2 })
-  @IsInt({ message: 'ID-ul utilizatorului trebuie să fie un număr întreg' })
-  @IsPositive({ message: 'ID-ul utilizatorului trebuie să fie pozitiv' })
-  @IsNotEmpty({ message: 'ID-ul utilizatorului este obligatoriu' })
-  user_id: number;
+  @IsInt({ message: 'User ID must be an integer' })
+  @IsPositive({ message: 'User ID must be positive' })
+  @IsNotEmpty({ message: 'User ID is required' })
+  userId: number;
 
-  @ApiProperty({ example: 'developer', enum: ['root', 'admin', 'project_manager', 'developer'], default: 'developer' })
-  @IsEnum(['root', 'admin', 'project_manager', 'developer'], { 
-    message: 'Rolul trebuie să fie: root, admin, project_manager sau developer' 
-  })
-  @IsNotEmpty({ message: 'Rolul este obligatoriu' })
-  user_role: UserRole;
+  @ApiProperty({ example: 'developer', enum: UserRole, default: UserRole.DEVELOPER })
+  @IsEnum(UserRole, { message: `Role must be one of the following: ${Object.values(UserRole).join(', ')}` })
+  @IsNotEmpty({ message: 'Role is required' })
+  userRole: UserRole;
 }

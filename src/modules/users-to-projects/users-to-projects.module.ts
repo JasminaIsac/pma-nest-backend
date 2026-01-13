@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UsersToProjectsService } from './users-to-projects.service';
 import { UsersToProjectsController } from './users-to-projects.controller';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
@@ -14,7 +13,7 @@ import { PassportModule } from '@nestjs/passport';
     }),
   ],
   controllers: [UsersToProjectsController],
-  providers: [UsersToProjectsService, PrismaService],
+  providers: [UsersToProjectsService],
   exports: [UsersToProjectsService],
 })
 export class UsersToProjectsModule {}

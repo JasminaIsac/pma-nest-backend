@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 import { EncryptionService } from './services/encryption.service';
 
 @Injectable()
@@ -11,31 +12,29 @@ export class MessagesService {
   ) {}
 
   async create(createMessageDto: CreateMessageDto, userId: number) {
-    // Validare conversație există
     const conversation = await this.prisma.conversation.findUnique({
-      where: { id: createMessageDto.conversation_id },
+      where: { id: createMessageDto.conversationId, deletedAt: null },
       include: {
         participants: true,
       },
     });
 
     if (!conversation) {
-      throw new BadRequestException(`Conversația cu ID ${createMessageDto.conversation_id} nu există`);
+      throw new BadRequestException(`Conversation with ID ${createMessageDto.conversationId} does not exist`);
     }
 
-    // Validare: utilizatorul trebuie să fie participant
-    const isParticipant = conversation.participants.some((p) => p.userId === userId);
+    const participants = conversation?.participants;
+    const isParticipant = participants.some(p => p.userId === userId);
+
     if (!isParticipant) {
-      throw new BadRequestException('Nu ai acces la această conversație');
+      throw new BadRequestException('You do not have access to this conversation');
     }
 
-    // Criptează mesajul
     const encryptedMessage = this.encryptionService.encrypt(createMessageDto.message);
 
-    // Creează mesajul
     const message = await this.prisma.conversationMessage.create({
       data: {
-        conversationId: createMessageDto.conversation_id,
+        conversationId: createMessageDto.conversationId,
         senderId: userId,
         message: encryptedMessage,
       },
@@ -50,7 +49,6 @@ export class MessagesService {
       },
     });
 
-    // Decrypt mesajul pentru răspuns
     return {
       ...message,
       message: this.encryptionService.decrypt(message.message),
@@ -58,26 +56,25 @@ export class MessagesService {
   }
 
   async findByConversation(conversationId: number, userId: number) {
-    // Validare utilizator este participant
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, deletedAt: null },
       include: {
         participants: true,
       },
     });
 
     if (!conversation) {
-      throw new BadRequestException(`Conversația cu ID ${conversationId} nu există`);
+      throw new BadRequestException(`Conversation with ID ${conversationId} does not exist`);
     }
 
-    const isParticipant = conversation.participants.some((p) => p.userId === userId);
+    const participants = conversation?.participants;
+    const isParticipant = participants.some((p) => p.userId === userId);
     if (!isParticipant) {
-      throw new BadRequestException('Nu ai acces la această conversație');
+      throw new BadRequestException('You do not have access to this conversation');
     }
 
-    // Obțin mesajele
     const messages = await this.prisma.conversationMessage.findMany({
-      where: { conversationId },
+      where: { conversationId, deletedAt: null },
       include: {
         sender: {
           select: {
@@ -90,20 +87,67 @@ export class MessagesService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Decriptează mesajele
     return messages.map((msg) => ({
       ...msg,
       message: this.encryptionService.decrypt(msg.message),
     }));
   }
 
-  async findOne(id: number, userId: number) {
-    if (id <= 0) {
-      throw new BadRequestException('ID-ul trebuie să fie un număr pozitiv');
+  async findByConversationCursor(
+    conversationId: number,
+    userId: number,
+    limit = 20,
+    cursor?: string,
+  ) {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, deletedAt: null },
+      include: { participants: true },
+    });
+
+    if (!conversation) {
+      throw new BadRequestException(`Conversation with ID ${conversationId} does not exist`);
     }
 
-    const message = await this.prisma.conversationMessage.findUnique({
-      where: { id },
+    const isParticipant = conversation.participants.some(p => p.userId === userId);
+    if (!isParticipant) {
+      throw new BadRequestException('You do not have access to this conversation');
+    }
+
+    const take = limit + 1;
+
+    const messages = await this.prisma.conversationMessage.findMany({
+      where: { conversationId, deletedAt: null },
+      take,
+      ...(cursor && {
+        cursor: { id: Number(cursor) },
+        skip: 1,
+      }),
+      orderBy: { id: 'desc' },
+      include: {
+        sender: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const hasMore = messages.length > limit;
+    const items = hasMore ? messages.slice(0, limit) : messages;
+
+    return {
+      items: items.map(msg => ({
+        ...msg,
+        message: this.encryptionService.decrypt(msg.message),
+      })),
+      nextCursor: hasMore ? items[items.length - 1].id : null,
+      hasMore,
+    };
+  }
+
+  async findOne(id: number, userId: number) {
+    if (id <= 0) {
+      throw new BadRequestException('The message ID must be a positive integer');
+    }
+
+    const message = await this.prisma.conversationMessage.findFirst({
+      where: { id, deletedAt: null },
       include: {
         conversation: {
           include: {
@@ -121,11 +165,11 @@ export class MessagesService {
     });
 
     if (!message) {
-      throw new NotFoundException(`Mesajul cu ID ${id} nu a fost găsit`);
+      throw new NotFoundException(`The message with ID ${id} was not found`);
     }
 
-    // Validare: utilizatorul trebuie să fie participant
-    const isParticipant = message.conversation.participants.some((p) => p.userId === userId);
+    const participants = message?.conversation?.participants;
+    const isParticipant = participants.some((p) => p.userId === userId);
     if (!isParticipant) {
       throw new BadRequestException('Nu ai acces la acest mesaj');
     }
@@ -136,19 +180,51 @@ export class MessagesService {
     };
   }
 
+  async update(id: number, updateMessageDto: UpdateMessageDto, userId: number) {
+    const message = await this.findOne(id, userId);
+    if (!message) {
+      throw new NotFoundException(`Message with ID ${id} not found`);
+    }
+
+    if (!updateMessageDto.message || updateMessageDto.message.trim() === '') {
+      throw new BadRequestException('Message content cannot be empty');
+    }
+
+    if (updateMessageDto.message.length > 5000) {
+      throw new BadRequestException('Message content cannot be longer than 5000 characters');
+    }
+
+    if (message.deletedAt) {
+      throw new BadRequestException('This message has been deleted');
+    }
+
+    if (message.createdAt.getTime() + 15 * 60 * 1000 < Date.now()) {
+      throw new BadRequestException('You can only edit messages within 15 minutes of sending');
+    }
+
+    if (message.senderId !== userId) {
+      throw new BadRequestException('You can only edit your own messages');
+    }
+
+    return await this.prisma.conversationMessage.update({
+      where: { id },
+      data: { message: this.encryptionService.encrypt(updateMessageDto.message) },
+    })
+  }
+
   async remove(id: number, userId: number) {
     const message = await this.findOne(id, userId);
     if (!message) {
-      throw new NotFoundException(`Mesajul cu ID ${id} nu a fost găsit`);
+      throw new NotFoundException(`Message with ID ${id} not found`);
     }
 
-    // Validare: doar autorul poate șterge mesajul
     if (message.senderId !== userId) {
-      throw new BadRequestException('Poți șterge doar mesajele tale');
+      throw new BadRequestException('You can only delete your own messages');
     }
 
-    return await this.prisma.conversationMessage.delete({
+    return await this.prisma.conversationMessage.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 }

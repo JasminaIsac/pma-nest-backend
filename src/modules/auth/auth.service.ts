@@ -1,9 +1,10 @@
 import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { HashService } from './services/hash.service';
 import { TokenService } from './services/token.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UserStatus } from 'src/generated/prisma/enums';
 
 @Injectable()
 export class AuthService {
@@ -14,34 +15,29 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto) {
-    // Caută utilizatorul după email
-    const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
+    const user = await this.prisma.user.findFirst({
+      where: { email: loginDto.email, deletedAt: null },
     });
 
     if (!user) {
-      throw new UnauthorizedException('Email sau parolă incorectă');
+      throw new UnauthorizedException('User not found');
     }
 
-    // Compară parolele
     const isPasswordValid = await this.hashService.comparePasswords(
       loginDto.password,
       user.password,
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Email sau parolă incorectă');
+      throw new UnauthorizedException('Incorrect email or password');
     }
 
-    // Verifică dacă utilizatorul este activ
-    if (user.status !== 'active') {
-      throw new UnauthorizedException('Contul dvs. nu este activ');
+    if (user.status === UserStatus.DELETED) {
+      throw new UnauthorizedException('User has been deleted');
     }
 
-    // Generează token JWT
     const token = this.tokenService.generateToken(user.id, user.email);
 
-    // Returnează datele utilizatorului (fără parolă) și token
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userData } = user;
     return {
@@ -52,7 +48,7 @@ export class AuthService {
 
   async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
     if (userId <= 0) {
-      throw new BadRequestException('ID-ul utilizatorului trebuie să fie un număr pozitiv');
+      throw new BadRequestException('The user ID must be a positive integer');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -60,7 +56,11 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('Utilizatorul nu a fost găsit');
+      throw new NotFoundException(`The user with ID ${userId} was not found`);
+    }
+
+    if (user.status === UserStatus.DELETED) {
+      throw new UnauthorizedException('User has been deleted');
     }
 
     const isOldPasswordValid = await this.hashService.comparePasswords(
@@ -69,12 +69,12 @@ export class AuthService {
     );
 
     if (!isOldPasswordValid) {
-      throw new UnauthorizedException('Parola veche nu este corectă');
+      throw new UnauthorizedException('Old password is incorrect');
     }
 
     if (changePasswordDto.newPassword === changePasswordDto.oldPassword) {
       throw new BadRequestException(
-        'Parola nouă trebuie să fie diferită de parola veche',
+        'The new password must be different from the old password',
       );
     }
 
@@ -89,7 +89,7 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Parola a fost schimbată cu succes',
+      message: 'Password changed successfully',
     };
   }
 }

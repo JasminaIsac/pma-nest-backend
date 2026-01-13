@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
@@ -14,7 +13,7 @@ import { PassportModule } from '@nestjs/passport';
     }),
   ],
   controllers: [CategoriesController],
-  providers: [CategoriesService, PrismaService],
+  providers: [CategoriesService],
   exports: [CategoriesService],
 })
 export class CategoriesModule {}

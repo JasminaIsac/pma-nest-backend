@@ -3,14 +3,26 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationExceptionFilter } from './common/filters/validation.filter';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Exception Filters
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  app.enableCors({
+    origin: process.env.CLIENT_URL?.split(','),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
+
   app.useGlobalFilters(new ValidationExceptionFilter());
 
-  // Validări globale
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -23,24 +35,25 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger Documentation
   const config = new DocumentBuilder()
     .setTitle('Project Management API')
-    .setDescription('API pentru managementul proiectelor cu autentificare JWT, conversații criptate și gestionarea echipelor')
+    .setDescription('API for project management with JWT authentication, encrypted conversations, and team management')
     .setVersion('1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'access-token',
     )
-    .addTag('auth', 'Autentificare și management cont')
-    .addTag('users', 'Utilizatori')
-    .addTag('projects', 'Proiecte')
-    .addTag('categories', 'Categorii proiecte')
-    .addTag('tasks', 'Task-uri proiecte')
-    .addTag('conversations', 'Conversații (private/grup)')
-    .addTag('messages', 'Mesaje criptate')
-    .addTag('users-to-projects', 'Gestionare echipă')
+    .addTag('auth', 'Authentication and account management')
+    .addTag('users', 'Users')
+    .addTag('projects', 'Projects')
+    .addTag('categories', 'Project categories')
+    .addTag('tasks', 'Project tasks')
+    .addTag('conversations', 'Conversations (private/group)')
+    .addTag('messages', 'Encrypted messages')
+    .addTag('users-to-projects', 'Team management')
+    .addTag('logs', 'Logs')
     .build();
+    
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 

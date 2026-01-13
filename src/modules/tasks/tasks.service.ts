@@ -1,70 +1,94 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums';
 
 @Injectable()
 export class TasksService {
   constructor(private prisma: PrismaService) {}
 
   async create(createTaskDto: CreateTaskDto) {
-    // Validare proiect există
     const projectExists = await this.prisma.project.findUnique({
-      where: { id: createTaskDto.project_id },
+      where: { id: createTaskDto.projectId },
     });
     if (!projectExists) {
-      throw new BadRequestException(`Proiectul cu ID ${createTaskDto.project_id} nu există`);
+      throw new BadRequestException(`Project with ID ${createTaskDto.projectId} does not exist`);
     }
 
-    // Validare utilizator (assignee) există
     const userExists = await this.prisma.user.findUnique({
-      where: { id: createTaskDto.assigned_to },
+      where: { id: createTaskDto.assignedTo },
     });
-    if (!userExists) {
-      throw new BadRequestException(`Utilizatorul cu ID ${createTaskDto.assigned_to} nu există`);
+    if (!userExists || userExists.deletedAt !== null) {
+      throw new BadRequestException(`User with ID ${createTaskDto.assignedTo} does not exist or has been deleted`);
     }
 
-    // Validare deadline în viitor
     const deadlineDate = new Date(createTaskDto.deadline);
     if (deadlineDate < new Date()) {
-      throw new BadRequestException('Data deadline-ului nu poate fi în trecut');
+      throw new BadRequestException('Deadline date cannot be in the past');
     }
 
     return await this.prisma.task.create({
       data: {
         title: createTaskDto.title,
         description: createTaskDto.description,
-        project_id: createTaskDto.project_id,
-        priority: createTaskDto.priority || 'medium',
-        assigned_to: createTaskDto.assigned_to,
+        projectId: createTaskDto.projectId,
+        priority: createTaskDto.priority || TaskPriority.MEDIUM,
+        assignedTo: createTaskDto.assignedTo,
         deadline: deadlineDate,
-        status: createTaskDto.status || 'new',
+        status: createTaskDto.status || TaskStatus.NEW,
       },
     });
   }
 
   async findAll() {
     return await this.prisma.task.findMany({
+      where: { deletedAt: null },
       include: {
         project: true,
         assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });  
+  }
+
+  async findAllCursor(limit = 10, cursor?: string) {
+    const take = limit + 1;
+
+    const tasks = await this.prisma.task.findMany({
+      where: { deletedAt: null },
+      take,
+      ...(cursor && {
+        cursor: { id: Number(cursor) },
+        skip: 1,
+      }),
+      orderBy: { id: 'desc' },
+      include: {
+        project: true,
+        assignee: {
+          select: { id: true, name: true, email: true },
         },
       },
     });
+
+    const hasMore = tasks.length > limit;
+    const items = hasMore ? tasks.slice(0, limit) : tasks;
+
+    return {
+      items,
+      nextCursor: hasMore ? items[items.length - 1].id : null,
+      hasMore,
+    };
   }
 
   async findOne(id: number) {
     if (id <= 0) {
-      throw new BadRequestException('ID-ul trebuie să fie un număr pozitiv');
+      throw new BadRequestException('ID must be a positive number');
     }
 
-    const task = await this.prisma.task.findUnique({
-      where: { id },
+    const task = await this.prisma.task.findFirst({
+      where: { id, deletedAt: null },
       include: {
         project: true,
         assignee: {
@@ -77,7 +101,7 @@ export class TasksService {
       },
     });
     if (!task) {
-      throw new NotFoundException(`Task-ul cu ID ${id} nu a fost găsit`);
+      throw new NotFoundException(`Task with ID ${id} not found`);
     }
     return task;
   }
@@ -85,34 +109,31 @@ export class TasksService {
   async update(id: number, updateTaskDto: UpdateTaskDto) {
     const task = await this.findOne(id);
     if (!task) {
-      throw new NotFoundException(`Task-ul cu ID ${id} nu a fost găsit`);
+      throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    // Validare proiect (dacă se actualizează)
-    if (updateTaskDto.project_id && updateTaskDto.project_id !== task.project_id) {
+    if (updateTaskDto.projectId && updateTaskDto.projectId !== task.projectId) {
       const projectExists = await this.prisma.project.findUnique({
-        where: { id: updateTaskDto.project_id },
+        where: { id: updateTaskDto.projectId },
       });
-      if (!projectExists) {
-        throw new BadRequestException(`Proiectul cu ID ${updateTaskDto.project_id} nu există`);
+      if (!projectExists || projectExists.deletedAt !== null) {
+        throw new BadRequestException(`Project with ID ${updateTaskDto.projectId} does not exist or has been deleted`);
       }
     }
 
-    // Validare utilizator (dacă se actualizează)
-    if (updateTaskDto.assigned_to && updateTaskDto.assigned_to !== task.assigned_to) {
+    if (updateTaskDto.assignedTo && updateTaskDto.assignedTo !== task.assignedTo) {
       const userExists = await this.prisma.user.findUnique({
-        where: { id: updateTaskDto.assigned_to },
+        where: { id: updateTaskDto.assignedTo },
       });
-      if (!userExists) {
-        throw new BadRequestException(`Utilizatorul cu ID ${updateTaskDto.assigned_to} nu există`);
+      if (!userExists || userExists.deletedAt !== null) {
+        throw new BadRequestException(`User with ID ${updateTaskDto.assignedTo} does not exist or has been deleted`);
       }
     }
 
-    // Validare deadline (dacă se actualizează)
     if (updateTaskDto.deadline) {
       const deadlineDate = new Date(updateTaskDto.deadline);
       if (deadlineDate < new Date()) {
-        throw new BadRequestException('Data deadline-ului nu poate fi în trecut');
+        throw new BadRequestException('Deadline date cannot be in the past');
       }
     }
 
@@ -121,9 +142,9 @@ export class TasksService {
       data: {
         ...(updateTaskDto.title && { title: updateTaskDto.title }),
         ...(updateTaskDto.description !== undefined && { description: updateTaskDto.description }),
-        ...(updateTaskDto.project_id && { project_id: updateTaskDto.project_id }),
+        ...(updateTaskDto.projectId && { projectId: updateTaskDto.projectId }),
         ...(updateTaskDto.priority && { priority: updateTaskDto.priority }),
-        ...(updateTaskDto.assigned_to && { assigned_to: updateTaskDto.assigned_to }),
+        ...(updateTaskDto.assignedTo && { assignedTo: updateTaskDto.assignedTo }),
         ...(updateTaskDto.deadline && { deadline: new Date(updateTaskDto.deadline) }),
         ...(updateTaskDto.status && { status: updateTaskDto.status }),
       },
@@ -143,11 +164,12 @@ export class TasksService {
   async remove(id: number) {
     const task = await this.findOne(id);
     if (!task) {
-      throw new NotFoundException(`Task-ul cu ID ${id} nu a fost găsit`);
+      throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    return await this.prisma.task.delete({
+    return await this.prisma.task.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 }

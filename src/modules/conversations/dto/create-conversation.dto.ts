@@ -7,19 +7,19 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ConversationType } from '@prisma/client';
+import { ConversationType } from 'src/generated/prisma/client';
 
 export class CreateConversationDto {
-  @ApiProperty({ example: 'private', enum: ['private', 'group'] })
-  @IsEnum(['private', 'group'], { message: 'Tipul conversației trebuie să fie: private sau group' })
-  @IsNotEmpty({ message: 'Tipul conversației este obligatoriu' })
+  @ApiProperty({ example: 'private', enum: ConversationType, description: 'Type of the conversation' })
+  @IsEnum(ConversationType, { message: `The conversation type must be one of the following: ${Object.values(ConversationType).join(', ')}` })
+  @IsNotEmpty({ message: 'Conversation type is required' })
   type: ConversationType;
 
-  @ApiProperty({ example: [2, 3], description: 'Array de ID-uri ale participanților' })
-  @IsArray({ message: 'Participanții trebuie să fie o listă' })
-  @ArrayMinSize(1, { message: 'Trebuie să existe cel puțin un participant' })
-  @IsInt({ each: true, message: 'Fiecare participant ID trebuie să fie un număr întreg' })
-  @IsPositive({ each: true, message: 'ID-ul participantului trebuie să fie pozitiv' })
-  @IsNotEmpty({ message: 'Lista participanților este obligatorie' })
-  participant_ids: number[];
+  @ApiProperty({ example: [2, 3], description: 'List of participant IDs' })
+  @IsArray({ message: 'Participant IDs must be an array' })
+  @ArrayMinSize(1, { message: 'At least one participant ID is required' })
+  @IsInt({ each: true, message: 'Each participant ID must be an integer' })
+  @IsPositive({ each: true, message: 'Each participant ID must be a positive integer' })
+  @IsNotEmpty({ message: 'Participant IDs are required' })
+  participantIds: number[];
 }

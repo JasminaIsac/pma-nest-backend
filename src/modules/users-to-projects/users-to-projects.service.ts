@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 import { CreateUserToProjectDto } from './dto/create-user-to-project.dto';
 import { UpdateUserToProjectDto } from './dto/update-user-to-project.dto';
 
@@ -8,40 +8,37 @@ export class UsersToProjectsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserToProjectDto: CreateUserToProjectDto) {
-    // Validare proiect există
     const projectExists = await this.prisma.project.findUnique({
-      where: { id: createUserToProjectDto.project_id },
+      where: { id: createUserToProjectDto.projectId },
     });
     if (!projectExists) {
-      throw new BadRequestException(`Proiectul cu ID ${createUserToProjectDto.project_id} nu există`);
+      throw new BadRequestException(`The project with ID ${createUserToProjectDto.projectId} does not exist`);
     }
 
-    // Validare utilizator există
     const userExists = await this.prisma.user.findUnique({
-      where: { id: createUserToProjectDto.user_id },
+      where: { id: createUserToProjectDto.userId },
     });
     if (!userExists) {
-      throw new BadRequestException(`Utilizatorul cu ID ${createUserToProjectDto.user_id} nu există`);
+      throw new BadRequestException(`The user with ID ${createUserToProjectDto.userId} does not exist`);
     }
 
-    // Verifică dacă relația deja există
     const existingRelation = await this.prisma.usersToProjects.findUnique({
       where: {
-        project_id_user_id: {
-          project_id: createUserToProjectDto.project_id,
-          user_id: createUserToProjectDto.user_id,
+        projectId_userId: {
+          projectId: createUserToProjectDto.projectId,
+          userId: createUserToProjectDto.userId,
         },
       },
     });
     if (existingRelation) {
-      throw new ConflictException('Utilizatorul este deja asignat acestui proiect');
+      throw new ConflictException('The user is already assigned to this project');
     }
 
     return await this.prisma.usersToProjects.create({
       data: {
-        project_id: createUserToProjectDto.project_id,
-        user_id: createUserToProjectDto.user_id,
-        user_role: createUserToProjectDto.user_role,
+        projectId: createUserToProjectDto.projectId,
+        userId: createUserToProjectDto.userId,
+        userRole: createUserToProjectDto.userRole,
       },
       include: {
         project: {
@@ -80,16 +77,16 @@ export class UsersToProjectsService {
           },
         },
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
   async findOne(id: number) {
     if (id <= 0) {
-      throw new BadRequestException('ID-ul trebuie să fie un număr pozitiv');
+      throw new BadRequestException('The relation ID must be a positive integer');
     }
 
-    const relation = await this.prisma.usersToProjects.findUnique({
+    const relation = await this.prisma.usersToProjects.findFirst({
       where: { id },
       include: {
         project: {
@@ -109,25 +106,25 @@ export class UsersToProjectsService {
       },
     });
     if (!relation) {
-      throw new NotFoundException(`Relația cu ID ${id} nu a fost găsită`);
+      throw new NotFoundException(`The relation with ID ${id} was not found`);
     }
     return relation;
   }
 
   async findByProject(projectId: number) {
     if (projectId <= 0) {
-      throw new BadRequestException('ID-ul proiectului trebuie să fie un număr pozitiv');
+      throw new BadRequestException('The project ID must be a positive integer');
     }
 
     const projectExists = await this.prisma.project.findUnique({
       where: { id: projectId },
     });
     if (!projectExists) {
-      throw new BadRequestException(`Proiectul cu ID ${projectId} nu există`);
+      throw new BadRequestException(`The project with ID ${projectId} does not exist`);
     }
 
     return await this.prisma.usersToProjects.findMany({
-      where: { project_id: projectId },
+      where: { projectId: projectId },
       include: {
         user: {
           select: {
@@ -138,24 +135,24 @@ export class UsersToProjectsService {
           },
         },
       },
-      orderBy: { created_at: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
   async findByUser(userId: number) {
     if (userId <= 0) {
-      throw new BadRequestException('ID-ul utilizatorului trebuie să fie un număr pozitiv');
+      throw new BadRequestException('The user ID must be a positive integer');
     }
 
     const userExists = await this.prisma.user.findUnique({
       where: { id: userId },
     });
     if (!userExists) {
-      throw new BadRequestException(`Utilizatorul cu ID ${userId} nu există`);
+      throw new BadRequestException(`User with ID ${userId} does not exist`);
     }
 
     return await this.prisma.usersToProjects.findMany({
-      where: { user_id: userId },
+      where: { userId: userId },
       include: {
         project: {
           select: {
@@ -166,68 +163,64 @@ export class UsersToProjectsService {
           },
         },
       },
-      orderBy: { created_at: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
   async update(id: number, updateUserToProjectDto: UpdateUserToProjectDto) {
     const relation = await this.findOne(id);
     if (!relation) {
-      throw new NotFoundException(`Relația cu ID ${id} nu a fost găsită`);
+      throw new NotFoundException(`The relation with ID ${id} was not found`);
     }
 
-    // Validare proiect (dacă se actualizează)
-    if (updateUserToProjectDto.project_id && updateUserToProjectDto.project_id !== relation.project_id) {
+    if (updateUserToProjectDto.projectId && updateUserToProjectDto.projectId !== relation.projectId) {
       const projectExists = await this.prisma.project.findUnique({
-        where: { id: updateUserToProjectDto.project_id },
+        where: { id: updateUserToProjectDto.projectId },
       });
       if (!projectExists) {
-        throw new BadRequestException(`Proiectul cu ID ${updateUserToProjectDto.project_id} nu există`);
+        throw new BadRequestException(`The project with ID ${updateUserToProjectDto.projectId} does not exist`);
       }
 
-      // Verifică dacă noua relație nu există deja
       const existingRelation = await this.prisma.usersToProjects.findUnique({
         where: {
-          project_id_user_id: {
-            project_id: updateUserToProjectDto.project_id,
-            user_id: relation.user_id,
+          projectId_userId: {
+            projectId: updateUserToProjectDto.projectId,
+            userId: relation.userId,
           },
         },
       });
       if (existingRelation) {
-        throw new ConflictException('Utilizatorul este deja asignat noului proiect');
+        throw new ConflictException('User is already assigned to the new project');
       }
     }
 
-    // Validare utilizator (dacă se actualizează)
-    if (updateUserToProjectDto.user_id && updateUserToProjectDto.user_id !== relation.user_id) {
+    if (updateUserToProjectDto.userId && updateUserToProjectDto.userId !== relation.userId) {
       const userExists = await this.prisma.user.findUnique({
-        where: { id: updateUserToProjectDto.user_id },
+        where: { id: updateUserToProjectDto.userId },
       });
       if (!userExists) {
-        throw new BadRequestException(`Utilizatorul cu ID ${updateUserToProjectDto.user_id} nu există`);
+        throw new BadRequestException(`User with ID ${updateUserToProjectDto.userId} does not exist`);
       }
 
-      // Verifică dacă noua relație nu există deja
       const existingRelation = await this.prisma.usersToProjects.findUnique({
         where: {
-          project_id_user_id: {
-            project_id: relation.project_id,
-            user_id: updateUserToProjectDto.user_id,
+          projectId_userId: {
+            projectId: relation.projectId,
+            userId: updateUserToProjectDto.userId,
           },
         },
       });
       if (existingRelation) {
-        throw new ConflictException('Utilizatorul nou este deja asignat acestui proiect');
+        throw new ConflictException('User is already assigned to this project');
       }
     }
 
     return await this.prisma.usersToProjects.update({
       where: { id },
       data: {
-        ...(updateUserToProjectDto.project_id && { project_id: updateUserToProjectDto.project_id }),
-        ...(updateUserToProjectDto.user_id && { user_id: updateUserToProjectDto.user_id }),
-        ...(updateUserToProjectDto.user_role && { user_role: updateUserToProjectDto.user_role }),
+        ...(updateUserToProjectDto.projectId && { projectId: updateUserToProjectDto.projectId }),
+        ...(updateUserToProjectDto.userId && { userId: updateUserToProjectDto.userId }),
+        ...(updateUserToProjectDto.userRole && { userRole: updateUserToProjectDto.userRole }),
       },
       include: {
         project: {
@@ -251,7 +244,7 @@ export class UsersToProjectsService {
   async remove(id: number) {
     const relation = await this.findOne(id);
     if (!relation) {
-      throw new NotFoundException(`Relația cu ID ${id} nu a fost găsită`);
+      throw new NotFoundException(`The relation with ID ${id} was not found`);
     }
 
     return await this.prisma.usersToProjects.delete({

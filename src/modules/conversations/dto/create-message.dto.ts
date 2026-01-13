@@ -9,16 +9,16 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateMessageDto {
-  @ApiProperty({ example: 1, description: 'ID-ul conversației' })
-  @IsInt({ message: 'ID-ul conversației trebuie să fie un număr întreg' })
-  @IsPositive({ message: 'ID-ul conversației trebuie să fie pozitiv' })
-  @IsNotEmpty({ message: 'ID-ul conversației este obligatoriu' })
-  conversation_id: number;
+  @ApiProperty({ example: 1, description: 'Conversation ID' })
+  @IsInt({ message: 'The conversation ID must be an integer' })
+  @IsPositive({ message: 'The conversation ID must be a positive integer' })
+  @IsNotEmpty({ message: 'The conversation ID is required' })
+  conversationId: number;
 
-  @ApiProperty({ example: 'Salut, cum merge proiectul?' })
-  @IsString({ message: 'Mesajul trebuie să fie text' })
-  @IsNotEmpty({ message: 'Mesajul este obligatoriu' })
-  @MinLength(1, { message: 'Mesajul trebuie să aibă cel puțin 1 caracter' })
-  @MaxLength(5000, { message: 'Mesajul nu poate depăși 5000 caractere' })
+  @ApiProperty({ example: 'Hello, how can I help you?', description: 'Message content' })
+  @IsString({ message: 'The message must be text' })
+  @IsNotEmpty({ message: 'The message is required' })
+  @MinLength(1, { message: 'The message must be at least 1 character long' })
+  @MaxLength(5000, { message: 'The message must be at most 5000 characters long' })
   message: string;
 }

@@ -3,12 +3,12 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
   @ApiProperty({ example: 'john.doe@example.com' })
-  @IsEmail({}, { message: 'Email-ul trebuie să fie valid' })
-  @IsNotEmpty({ message: 'Email-ul este obligatoriu' })
+  @IsEmail({}, { message: 'Email must be valid' })
+  @IsNotEmpty({ message: 'Email is required' })
   email: string;
 
   @ApiProperty({ example: 'password123' })
-  @IsString({ message: 'Parola trebuie să fie text' })
-  @IsNotEmpty({ message: 'Parola este obligatorie' })
+  @IsString({ message: 'Password must be text' })
+  @IsNotEmpty({ message: 'Password is required' })
   password: string;
 }

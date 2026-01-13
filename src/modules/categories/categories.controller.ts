@@ -15,7 +15,9 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from 'types/enums';
+import { UserRole } from 'src/generated/prisma/client';
+import { LogActivity } from 'src/common/decorators/log-action.decorator';
+import { LogEntity, LogAction } from 'src/generated/prisma/client';
 
 @ApiTags('categories')
 @Controller('categories')
@@ -26,24 +28,25 @@ export class CategoriesController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Creează o nouă categorie' })
-  @ApiResponse({ status: 201, description: 'Categoria a fost creată cu succes' })
-  @ApiResponse({ status: 400, description: 'Validare eșuată' })
+  @LogActivity(LogEntity.CATEGORY, LogAction.CREATE)
+  @ApiOperation({ summary: 'Create a new category' })
+  @ApiResponse({ status: 201, description: 'Category has been successfully created' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Obține toate categoriile' })
-  @ApiResponse({ status: 200, description: 'Lista categoriilor' })
+  @ApiOperation({ summary: 'Get all categories' })
+  @ApiResponse({ status: 200, description: 'List of categories' })
   findAll() {
     return this.categoriesService.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obține o categorie după ID' })
-  @ApiResponse({ status: 200, description: 'Categoria găsită' })
-  @ApiResponse({ status: 404, description: 'Categoria nu a fost găsită' })
+  @ApiOperation({ summary: 'Get a category by ID' })
+  @ApiResponse({ status: 200, description: 'Category found' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
   findOne(@Param('id') id: string) {
     return this.categoriesService.findOne(+id);
   }
@@ -52,9 +55,10 @@ export class CategoriesController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizează o categorie' })
-  @ApiResponse({ status: 200, description: 'Categoria a fost actualizată cu succes' })
-  @ApiResponse({ status: 404, description: 'Categoria nu a fost găsită' })
+  @LogActivity(LogEntity.CATEGORY, LogAction.UPDATE)
+  @ApiOperation({ summary: 'Update a category' })
+  @ApiResponse({ status: 200, description: 'Category has been successfully updated' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
   update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
     return this.categoriesService.update(+id, updateCategoryDto);
   }
@@ -63,9 +67,10 @@ export class CategoriesController {
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Șterge o categorie' })
-  @ApiResponse({ status: 200, description: 'Categoria a fost ștearsă cu succes' })
-  @ApiResponse({ status: 404, description: 'Categoria nu a fost găsită' })
+  @LogActivity(LogEntity.CATEGORY, LogAction.DELETE)
+  @ApiOperation({ summary: 'Delete a category' })
+  @ApiResponse({ status: 200, description: 'Category has been successfully deleted' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(+id);
   }

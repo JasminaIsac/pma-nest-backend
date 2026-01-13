@@ -4,7 +4,6 @@ import { MessagesService } from './messages.service';
 import { ConversationsController } from './conversations.controller';
 import { MessagesController } from './messages.controller';
 import { EncryptionService } from './services/encryption.service';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
@@ -17,7 +16,7 @@ import { PassportModule } from '@nestjs/passport';
     }),
   ],
   controllers: [ConversationsController, MessagesController],
-  providers: [ConversationsService, MessagesService, EncryptionService, PrismaService],
+  providers: [ConversationsService, MessagesService, EncryptionService],
   exports: [ConversationsService, MessagesService, EncryptionService],
 })
 export class ConversationsModule {}

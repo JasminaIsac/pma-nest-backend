@@ -3,16 +3,16 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ChangePasswordDto {
   @ApiProperty({ example: 'oldPassword123' })
-  @IsString({ message: 'Parola veche trebuie să fie text' })
-  @IsNotEmpty({ message: 'Parola veche este obligatorie' })
+  @IsString({ message: 'Old password must be text' })
+  @IsNotEmpty({ message: 'Old password is required' })
   oldPassword: string;
 
   @ApiProperty({ example: 'newPassword123' })
-  @IsString({ message: 'Noua parolă trebuie să fie text' })
-  @IsNotEmpty({ message: 'Noua parolă este obligatorie' })
-  @MinLength(6, { message: 'Noua parolă trebuie să aibă cel puțin 6 caractere' })
+  @IsString({ message: 'New password must be text' })
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(6, { message: 'New password must be at least 6 characters long' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: 'Parola trebuie să conțină cel puțin o literă mare, o literă mică și o cifră',
+    message: 'New password must contain at least one uppercase letter, one lowercase letter, and one number',
   })
   newPassword: string;
 }
