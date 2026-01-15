@@ -9,5 +9,4 @@ export interface LogMetadata {
 }
 
 export const LogActivity = (entity: LogEntity, action: LogAction) => 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   SetMetadata<string, LogMetadata>(LOG_METADATA_KEY, { entity, action });
