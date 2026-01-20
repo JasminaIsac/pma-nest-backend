@@ -48,7 +48,7 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Category found' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   findOne(@Param('id') id: string) {
-    return this.categoriesService.findOne(+id);
+    return this.categoriesService.findOne(id);
   }
 
   @Patch(':id')
@@ -60,7 +60,7 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Category has been successfully updated' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
-    return this.categoriesService.update(+id, updateCategoryDto);
+    return this.categoriesService.update(id, updateCategoryDto);
   }
 
   @Delete(':id')
@@ -72,6 +72,6 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Category has been successfully deleted' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   remove(@Param('id') id: string) {
-    return this.categoriesService.remove(+id);
+    return this.categoriesService.remove(id);
   }
 }

@@ -31,11 +31,11 @@ export class ConversationsGateway {
   ) {}
 
   @SubscribeMessage('join_conversation')
-  handleJoinConversation(
+  async handleJoinConversation(
     @MessageBody() payload: JoinConversationDto,
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`conversation_${payload.conversationId}`);
+    await client.join(`conversation_${payload.conversationId}`);
     client.emit('joined_conversation', { conversationId: payload.conversationId });
   }
 

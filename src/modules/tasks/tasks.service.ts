@@ -60,7 +60,7 @@ export class TasksService {
       where: { deletedAt: null },
       take,
       ...(cursor && {
-        cursor: { id: Number(cursor) },
+        cursor: { id: cursor },
         skip: 1,
       }),
       orderBy: { id: 'desc' },
@@ -82,9 +82,9 @@ export class TasksService {
     };
   }
 
-  async findOne(id: number) {
-    if (id <= 0) {
-      throw new BadRequestException('ID must be a positive number');
+  async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('ID must be a valid UUID v4');
     }
 
     const task = await this.prisma.task.findFirst({
@@ -106,7 +106,7 @@ export class TasksService {
     return task;
   }
 
-  async update(id: number, updateTaskDto: UpdateTaskDto) {
+  async update(id: string, updateTaskDto: UpdateTaskDto) {
     const task = await this.findOne(id);
     if (!task) {
       throw new NotFoundException(`Task with ID ${id} not found`);
@@ -161,7 +161,7 @@ export class TasksService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const task = await this.findOne(id);
     if (!task) {
       throw new NotFoundException(`Task with ID ${id} not found`);

@@ -46,9 +46,9 @@ export class AuthService {
     };
   }
 
-  async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
-    if (userId <= 0) {
-      throw new BadRequestException('The user ID must be a positive integer');
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    if (!userId) {
+      throw new BadRequestException('The user ID must be provided');
     }
 
     const user = await this.prisma.user.findUnique({

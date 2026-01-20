@@ -81,9 +81,9 @@ export class UsersToProjectsService {
     });
   }
 
-  async findOne(id: number) {
-    if (id <= 0) {
-      throw new BadRequestException('The relation ID must be a positive integer');
+  async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('The relation ID must be a valid string');
     }
 
     const relation = await this.prisma.usersToProjects.findFirst({
@@ -111,9 +111,9 @@ export class UsersToProjectsService {
     return relation;
   }
 
-  async findByProject(projectId: number) {
-    if (projectId <= 0) {
-      throw new BadRequestException('The project ID must be a positive integer');
+  async findByProject(projectId: string) {
+    if (!projectId) {
+      throw new BadRequestException('The project ID must be provided');
     }
 
     const projectExists = await this.prisma.project.findUnique({
@@ -139,9 +139,9 @@ export class UsersToProjectsService {
     });
   }
 
-  async findByUser(userId: number) {
-    if (userId <= 0) {
-      throw new BadRequestException('The user ID must be a positive integer');
+  async findByUser(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('The user ID must be provided');
     }
 
     const userExists = await this.prisma.user.findUnique({
@@ -167,7 +167,7 @@ export class UsersToProjectsService {
     });
   }
 
-  async update(id: number, updateUserToProjectDto: UpdateUserToProjectDto) {
+  async update(id: string, updateUserToProjectDto: UpdateUserToProjectDto) {
     const relation = await this.findOne(id);
     if (!relation) {
       throw new NotFoundException(`The relation with ID ${id} was not found`);
@@ -241,7 +241,7 @@ export class UsersToProjectsService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const relation = await this.findOne(id);
     if (!relation) {
       throw new NotFoundException(`The relation with ID ${id} was not found`);

@@ -5,12 +5,8 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtGuard } from './guards/jwt.guard';
 import { LogActivity } from 'src/common/decorators/log-action.decorator';
+import { JwtPayload } from '../auth/decorators/current-user.decorator';
 import { LogEntity, LogAction } from 'src/generated/prisma/client';
-
-interface JwtPayload {
-  userId: number;
-  email: string;
-}
 
 interface AuthenticatedRequest extends Request {
   user: JwtPayload;

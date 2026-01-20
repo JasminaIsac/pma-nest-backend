@@ -64,7 +64,7 @@ export class ProfileController {
   @ApiOperation({ summary: 'Delete user avatar' })
   @ApiResponse({ status: 200, description: 'User avatar deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async deleteAvatar(@CurrentUser() user: JwtPayload) {
+  deleteAvatar(@CurrentUser() user: JwtPayload) {
     return this.usersService.updateAvatar(user.userId, null);
   }
 }

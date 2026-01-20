@@ -13,11 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { JwtGuard } from '../auth/guards/jwt.guard';
-
-interface JwtPayload {
-  userId: number;
-  email: string;
-}
+import { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: JwtPayload;
@@ -73,7 +69,7 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'The conversation has been successfully retrieved' })
   @ApiResponse({ status: 404, description: 'The conversation was not found' })
   findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.conversationsService.findOne(+id, req.user.userId);
+    return this.conversationsService.findOne(id, req.user.userId);
   }
 
   @Delete(':id')
@@ -83,6 +79,6 @@ export class ConversationsController {
   @ApiResponse({ status: 200, description: 'The conversation has been successfully deleted' })
   @ApiResponse({ status: 404, description: 'The conversation was not found' })
   remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.conversationsService.remove(+id, req.user.userId);
+    return this.conversationsService.remove(id, req.user.userId);
   }
 }

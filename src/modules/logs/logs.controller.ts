@@ -1,18 +1,5 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Param,
-  ParseIntPipe,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LogsService } from './logs.service';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -65,7 +52,7 @@ export class LogsController {
   @ApiResponse({ status: 200, description: 'Logs for entity item' })
   findByEntityAndId(
     @Param('entityName') entityName: LogEntity,
-    @Param('entityId', ParseIntPipe) entityId: number,
+    @Param('entityId') entityId: string,
   ) {
     return this.logsService.findByEntity(entityName, entityId);
   }

@@ -4,6 +4,14 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { EncryptionService } from './services/encryption.service';
 
+interface Participant {
+  id: string;
+  conversationId: string;
+  userId: string;
+  joinedAt: Date;
+  lastReadAt: Date | null;
+}
+
 @Injectable()
 export class MessagesService {
   constructor(
@@ -11,7 +19,7 @@ export class MessagesService {
     private encryptionService: EncryptionService,
   ) {}
 
-  async create(createMessageDto: CreateMessageDto, userId: number) {
+  async create(createMessageDto: CreateMessageDto, userId: string) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: createMessageDto.conversationId, deletedAt: null },
       include: {
@@ -23,7 +31,7 @@ export class MessagesService {
       throw new BadRequestException(`Conversation with ID ${createMessageDto.conversationId} does not exist`);
     }
 
-    const participants = conversation?.participants;
+    const participants = conversation?.participants as Participant[];
     const isParticipant = participants.some(p => p.userId === userId);
 
     if (!isParticipant) {
@@ -55,7 +63,7 @@ export class MessagesService {
     };
   }
 
-  async findByConversation(conversationId: number, userId: number) {
+  async findByConversation(conversationId: string, userId: string) {
     const conversation = await this.prisma.conversation.findFirst({
       where: { id: conversationId, deletedAt: null },
       include: {
@@ -67,8 +75,9 @@ export class MessagesService {
       throw new BadRequestException(`Conversation with ID ${conversationId} does not exist`);
     }
 
-    const participants = conversation?.participants;
+    const participants = conversation?.participants as Participant[];
     const isParticipant = participants.some((p) => p.userId === userId);
+
     if (!isParticipant) {
       throw new BadRequestException('You do not have access to this conversation');
     }
@@ -94,8 +103,8 @@ export class MessagesService {
   }
 
   async findByConversationCursor(
-    conversationId: number,
-    userId: number,
+    conversationId: string,
+    userId: string,
     limit = 20,
     cursor?: string,
   ) {
@@ -108,7 +117,9 @@ export class MessagesService {
       throw new BadRequestException(`Conversation with ID ${conversationId} does not exist`);
     }
 
-    const isParticipant = conversation.participants.some(p => p.userId === userId);
+    const participants = conversation?.participants as Participant[];
+    const isParticipant = participants.some((p) => p.userId === userId);
+
     if (!isParticipant) {
       throw new BadRequestException('You do not have access to this conversation');
     }
@@ -119,7 +130,7 @@ export class MessagesService {
       where: { conversationId, deletedAt: null },
       take,
       ...(cursor && {
-        cursor: { id: Number(cursor) },
+        cursor: { id: cursor },
         skip: 1,
       }),
       orderBy: { id: 'desc' },
@@ -141,9 +152,9 @@ export class MessagesService {
     };
   }
 
-  async findOne(id: number, userId: number) {
-    if (id <= 0) {
-      throw new BadRequestException('The message ID must be a positive integer');
+  async findOne(id: string, userId: string) {
+    if (!id) {
+      throw new BadRequestException('The message ID must be a valid UUID');
     }
 
     const message = await this.prisma.conversationMessage.findFirst({
@@ -168,7 +179,7 @@ export class MessagesService {
       throw new NotFoundException(`The message with ID ${id} was not found`);
     }
 
-    const participants = message?.conversation?.participants;
+    const participants = message?.conversation?.participants as Participant[];
     const isParticipant = participants.some((p) => p.userId === userId);
     if (!isParticipant) {
       throw new BadRequestException('Nu ai acces la acest mesaj');
@@ -180,7 +191,7 @@ export class MessagesService {
     };
   }
 
-  async update(id: number, updateMessageDto: UpdateMessageDto, userId: number) {
+  async update(id: string, updateMessageDto: UpdateMessageDto, userId: string) {
     const message = await this.findOne(id, userId);
     if (!message) {
       throw new NotFoundException(`Message with ID ${id} not found`);
@@ -212,7 +223,7 @@ export class MessagesService {
     })
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: string, userId: string) {
     const message = await this.findOne(id, userId);
     if (!message) {
       throw new NotFoundException(`Message with ID ${id} not found`);

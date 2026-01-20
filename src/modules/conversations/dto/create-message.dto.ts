@@ -1,19 +1,10 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsInt,
-  IsPositive,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
 
 export class CreateMessageDto {
-  @ApiProperty({ example: 1, description: 'Conversation ID' })
-  @IsInt({ message: 'The conversation ID must be an integer' })
-  @IsPositive({ message: 'The conversation ID must be a positive integer' })
-  @IsNotEmpty({ message: 'The conversation ID is required' })
-  conversationId: number;
+  @UUIDv4Property()
+  conversationId: string;
 
   @ApiProperty({ example: 'Hello, how can I help you?', description: 'Message content' })
   @IsString({ message: 'The message must be text' })

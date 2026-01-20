@@ -1,98 +1,349 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🚀 Project Management App - Backend Setup Guide
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## ✅ Prerequisites
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- Node.js 18+ installed
+- PostgreSQL 12+ installed and running
+- npm or yarn package manager
 
-## Description
+## 📋 Installation Steps
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+### 1. Clone & Install Dependencies
 
 ```bash
-$ npm install
+cd pma-nest-backend
+npm install
 ```
 
-## Compile and run the project
+### 2. Configure Environment Variables
+
+Copy `.env.example` to `.env` and configure:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
 
-## Run tests
+Edit `.env` with your actual values:
 
+```env
+# Database Configuration
+DATABASE_URL="postgresql://user:password@localhost:5432/project_management_db"
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Security - Change these in production!
+JWT_SECRET=your-super-secret-jwt-key-min-32-characters
+ENCRYPTION_KEY=your-32-character-encryption-key!
+```
+
+**⚠️ IMPORTANT:** Generate secure keys for production:
 ```bash
-# unit tests
-$ npm run test
+# Generate random JWT secret (32 chars)
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# Generate random encryption key (32 chars)
+node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
 ```
 
-## Deployment
+### 3. Setup Database
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+#### Option A: Run Migrations
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run db:migrate
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+This will:
+- Create database tables from schema.prisma
+- Apply all pending migrations
+- Generate Prisma Client
 
-## Resources
+#### Option B: Push Schema (Development Only)
+```bash
+npm run db:push
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+#### Option C: Reset Database (Development Only)
+```bash
+npm run db:reset
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**Warning:** This deletes all data!
 
-## Support
+### 4. (Optional) Seed Database
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Create `prisma/seed.js`:
 
-## Stay in touch
+```javascript
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+async function main() {
+  // Add your seed data here
+  console.log('Database seeded!');
+}
 
-## License
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Then run:
+```bash
+npm run db:seed
+```
+
+**⚠️ IMPORTANT:** Do not run seed scripts in production unless explicitly intended.
+
+## 🧱 Architecture Overview
+
+- Modular NestJS structure:
+  - Each module contains Controllers, Services, and DTOs
+  - Prisma ORM for database access
+  - Centralized validation with class-validator
+  - Centralized exception handling
+  - Authentication using JWT + Passport
+- Project is scalable: easy to add new modules or microservices
+- Frontend interacts via REST API (Swagger documented)
+
+## 🏃 Running the Application
+
+### Development Mode (with hot reload)
+```bash
+npm run start:dev
+```
+
+### Production Mode
+```bash
+npm run build
+npm run start:prod
+```
+
+### Debugging
+```bash
+npm run start:debug
+```
+
+## 📊 Database Management
+
+### View Database in GUI
+```bash
+npm run prisma:studio
+```
+
+Opens: http://localhost:5555
+
+### Check Migration Status
+```bash
+npx prisma migrate status
+```
+
+### Create New Migration
+```bash
+npx prisma migrate dev --name describe_your_change
+```
+
+## 📚 API Documentation
+
+Once the server is running:
+
+- **Swagger UI:** http://localhost:3000/api
+
+## 🔐 Authentication
+
+Passwords are hashed using bcrypt before storage.
+
+### Register User
+```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "role": "developer"
+  }'
+```
+
+### Login
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+Response:
+```json
+{
+  "access_token": "eyJhbGc...",
+  "user": {
+    "id": "...",
+    "email": "user@example.com",
+    "role": "developer"
+  }
+}
+```
+
+### Use Token in Requests
+```bash
+curl -X GET http://localhost:3000/auth/profile \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+## ⚠️ Rate Limiting
+
+Global rate limiting is enabled:
+- **Short limit:** 30 requests per minute
+- **Long limit:** 300 requests per 15 minutes
+
+If you exceed the limit:
+```json
+{
+  "statusCode": 429,
+  "message": "Too many requests. Please try again later.",
+  "error": "Too Many Requests"
+}
+```
+
+## 📦 Available npm Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run build` | Build for production |
+| `npm run start` | Run production build |
+| `npm run start:dev` | Development with hot reload |
+| `npm run start:debug` | Debug mode |
+| `npm run start:prod` | Production mode |
+| `npm test` | Run unit tests |
+| `npm run test:e2e` | Run E2E tests |
+| `npm run test:cov` | Test coverage report |
+| `npm run db:migrate` | Run database migrations |
+| `npm run db:push` | Sync schema to database |
+| `npm run db:reset` | Reset database (dev only) |
+| `npm run db:seed` | Populate database with seed data |
+| `npm run prisma:studio` | Open database GUI |
+| `npm run lint` | Run ESLint |
+
+## 🔍 Troubleshooting
+
+### Database Connection Error
+```
+Error: connect ECONNREFUSED 127.0.0.1:5432
+```
+
+**Solution:** Ensure PostgreSQL is running
+```bash
+# macOS
+brew services start postgresql
+
+# Windows (if installed via installer)
+# Start PostgreSQL from Services
+
+# Linux
+sudo systemctl start postgresql
+```
+
+### Port Already in Use
+```
+Error: listen EADDRINUSE: address already in use :::3000
+```
+
+**Solution:** Change `PORT` in `.env` or kill the process:
+```bash
+# Windows
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+
+# Linux/macOS
+lsof -i :3000
+kill -9 <PID>
+```
+
+### Prisma Client Generation Error
+```
+npm run build
+npx prisma generate
+```
+
+### Migrations Out of Sync
+```bash
+npm run db:reset
+npm run db:migrate
+```
+
+## 📖 Module Documentation
+
+### 🔑 Authentication
+- `POST /auth/login` - User login
+- `POST /auth/register` - User registration (public)
+- `GET /auth/profile` - Get current user (protected)
+- `POST /auth/change-password` - Change password (protected)
+
+### 📤 User Management
+- `POST /users` - Create user (admin only)
+- `GET /users` - List users
+- `GET /users/:id` - Get user details
+- `PUT /users/:id` - Update user
+- `DELETE /users/:id` - Delete user
+
+### 📁 Projects
+- `POST /projects` - Create project
+- `GET /projects` - List projects
+- `GET /projects/:id` - Get project details
+- `PUT /projects/:id` - Update project
+- `DELETE /projects/:id` - Delete project
+
+### 📂 Categories
+- `POST /categories` - Create category
+- `GET /categories` - List categories
+- `GET /categories/:id` - Get category details
+- `PUT /categories/:id` - Update category
+- `DELETE /categories/:id` - Delete category
+
+### ✅ Tasks
+- `POST /tasks` - Create task
+- `GET /tasks` - List tasks
+- `GET /tasks/:id` - Get task details
+- `PUT /tasks/:id` - Update task
+- `DELETE /tasks/:id` - Delete task
+
+### 💬 Conversations & Messages
+- `POST /conversations` - Create conversation
+- `GET /conversations` - List conversations
+- `POST /conversations/:id/messages` - Send message (auto-encrypted)
+- `GET /conversations/:id/messages` - Get messages (auto-decrypted)
+
+### 👥 Users to Projects (Team Management)
+- `POST /users-to-projects` - Add user to project
+- `GET /users-to-projects/project/:id` - List project members
+- `GET /users-to-projects/user/:id` - List user's projects
+- `PUT /users-to-projects/:id` - Update user role
+- `DELETE /users-to-projects/:id` - Remove user from project
+
+## 🚀 Deployment Checklist
+
+- [ ] Set `NODE_ENV=production` in `.env`
+- [ ] Generate secure `JWT_SECRET` and `ENCRYPTION_KEY`
+- [ ] Configure PostgreSQL on remote server
+- [ ] Set `DATABASE_URL` for production database
+- [ ] Run `npm run build`
+- [ ] Run `npm run db:migrate` (on production database)
+- [ ] Set up reverse proxy (nginx/Apache)
+- [ ] Configure SSL/TLS certificates
+- [ ] Set up environment-based logging
+- [ ] Configure automated backups
+- [ ] Set up monitoring and alerting
+
+## 📞 Support
+
+For issues, check:
+1. Database connection string in `.env`
+2. PostgreSQL is running and accessible
+3. Environment variables are set correctly
+4. Node.js version >= 18
+5. All dependencies installed: `npm install`
+
+Good luck! 🎉

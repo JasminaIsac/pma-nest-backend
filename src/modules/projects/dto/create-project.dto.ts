@@ -2,15 +2,14 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsNumber,
   MinLength,
   MaxLength,
-  Min,
   IsDateString,
   IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ProjectStatus } from 'src/generated/prisma/enums';
+import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'Project Alpha', minLength: 3, maxLength: 255 })
@@ -26,18 +25,12 @@ export class CreateProjectDto {
   @MaxLength(1000, { message: 'Description cannot exceed 1000 characters' })
   description?: string;
 
-  @ApiProperty({ example: 1, minimum: 1 })
-  @IsNumber({}, { message: 'Category ID must be a number' })
-  @IsNotEmpty({ message: 'Category ID is required' })
-  @Min(1, { message: 'Category ID must be greater than 0' })
-  categoryId: number;
+  @UUIDv4Property()
+  categoryId: string;
 
-  @ApiProperty({ example: 1, minimum: 1 })
-  @IsNumber({}, { message: 'Manager ID must be a number' })
-  @IsNotEmpty({ message: 'Manager ID is required' })
-  @Min(1, { message: 'Manager ID must be greater than 0' })
-  managerId: number;
-  
+  @UUIDv4Property()
+  managerId: string;
+
   @ApiProperty({ example: 'ACTIVE', enum: ProjectStatus, default: ProjectStatus.NEW })
   @IsString({ message: 'Status must be a string' })
   @IsNotEmpty({ message: 'Status is required' })

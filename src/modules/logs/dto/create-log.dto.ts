@@ -1,22 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsNotEmpty, IsEnum, IsPositive } from 'class-validator';
+import { IsNotEmpty, IsEnum } from 'class-validator';
 import { LogAction, LogEntity } from 'src/generated/prisma/client';
+import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
 
 export class CreateLogDto {
-  @ApiProperty()
-  @IsNumber({}, { message: 'User ID must be a number' })
-  @IsNotEmpty({ message: 'User ID is required' })
-  @IsPositive({ message: 'User ID must be positive' })
-  userId: number;
+  @UUIDv4Property()
+  userId: string;
 
   @ApiProperty({ example: 'Project', enum: LogEntity })
   @IsNotEmpty({ message: 'Entity is required' })
   @IsEnum(LogEntity, { message: `Entity must be one of the following: ${Object.values(LogEntity).join(', ')}` })
   entity: LogEntity;
 
-  @ApiProperty( { example: 1, required: false })
-  @IsNumber({}, { message: 'Entity ID must be a number' })
-  entityId?: number | null;
+  @UUIDv4Property({ required: false })
+  entityId?: string | null;
 
   @ApiProperty({ example: 'CREATE', enum: LogAction })
   @IsNotEmpty({ message: 'Action is required' })
@@ -25,6 +22,7 @@ export class CreateLogDto {
 
   @ApiProperty({ required: false })
   before?: unknown;
+
   @ApiProperty({ required: false })
   after?: unknown;
 }

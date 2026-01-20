@@ -1,67 +1,94 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { Observable, from, lastValueFrom } from 'rxjs';
-import { tap, mergeMap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { LogsService } from 'src/modules/logs/logs.service';
 import { PrismaService } from 'prisma/prisma.service';
 import { LOG_METADATA_KEY, LogMetadata } from 'src/common/decorators/log-action.decorator';
 import { LogAction } from 'src/generated/prisma/client';
+
+interface AuthenticatedRequest extends Request {
+  user?: { id: string };
+}
+
+const logEntityToModel: Record<string, keyof PrismaService> = {
+  PROJECT: 'project',
+  TASK: 'task',
+  USER: 'user',
+  CATEGORY: 'category',
+};
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   constructor(
     private readonly reflector: Reflector,
     private readonly logsService: LogsService,
-    private readonly prisma: PrismaService, // Avem nevoie de el pentru "before"
+    private readonly prisma: PrismaService,
   ) {}
 
-  async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const metadata = this.reflector.get<LogMetadata | undefined>(LOG_METADATA_KEY, context.getHandler());
+  async intercept(
+  context: ExecutionContext,
+  next: CallHandler,
+): Promise<Observable<unknown>> {
+  const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+  const metadata = this.reflector.get<LogMetadata | undefined>(
+    LOG_METADATA_KEY,
+    context.getHandler(),
+  );
 
-    if (!metadata || metadata.action !== LogAction.UPDATE) {
-      // Dacă nu e UPDATE, mergem direct mai departe și lăsăm before/after null
-      return next.handle().pipe(
-        tap((responseData) => this.saveSimpleLog(request, metadata, responseData))
-      );
-    }
-
-    // --- LOGICA SPECIFICĂ PENTRU UPDATE ---
-    const entityId = Number(request.params.id);
-    let beforeData: any = null;
-
-    if (entityId) {
-      // Luăm obiectul de dinainte de update
-      // Folosim table name din metadata.entity (asigură-te că LogEntity coincide cu numele modelului Prisma)
-      const modelName = metadata.entity.toLowerCase();
-      beforeData = await (this.prisma as any)[modelName].findUnique({ where: { id: entityId } });
-    }
-
+  // Dacă nu avem metadata sau nu e UPDATE
+  if (!metadata || metadata.action !== LogAction.UPDATE) {
     return next.handle().pipe(
-      tap((afterData) => {
-        const user = request.user as { id: number } | undefined;
-        if (user?.id) {
-          void this.logsService.createLog({
-            userId: user.id,
-            entity: metadata.entity,
-            entityId: entityId || (afterData as any)?.id,
-            action: LogAction.UPDATE,
-            before: beforeData, // Starea veche din DB
-            after: afterData,   // Starea nouă returnată de controller
-          });
-        }
-      }),
+      tap((responseData) =>
+        this.saveSimpleLog(request, metadata, responseData),
+      ),
     );
   }
 
-  // Metodă simplificată pentru CREATE / DELETE (unde before/after sunt null)
-  private saveSimpleLog(request: Request, metadata: LogMetadata | undefined, responseData: unknown) {
-    const user = request.user as { id: number } | undefined;
-    if (!metadata || !user?.id) return;
+  // -------- UPDATE cu before / after --------
+  const param = request.params?.id;
+  const entityId: string | null = Array.isArray(param) ? param[0] : param ?? null;
+  let beforeData: unknown = null;
+
+  if (entityId) {
+    const modelName = logEntityToModel[metadata.entity];
+    const modelDelegate = this.prisma[modelName] as unknown;
+    const model = modelDelegate as { findUnique: (args: { where: { id: string } }) => Promise<unknown> } | undefined;
+
+    if (model) {
+      beforeData = await model.findUnique({ where: { id: entityId } });
+    }
+  }
+
+  return next.handle().pipe(
+    tap((afterData) => {
+      const userId = request.user?.id;
+      if (!userId) return;
+
+      void this.logsService.createLog({
+        userId,
+        entity: metadata.entity,
+        entityId: entityId,
+        action: LogAction.UPDATE,
+        before: beforeData,
+        after: afterData,
+      });
+    }),
+  );
+}
+
+  // CREATE / DELETE (fara before / after)
+  private saveSimpleLog(
+    request: AuthenticatedRequest,
+    metadata: LogMetadata | undefined,
+    responseData: unknown,
+  ) {
+    const userId = request.user?.id;
+    if (!metadata || !userId) return;
 
     void this.logsService.createLog({
-      userId: user.id,
+      userId,
       entity: metadata.entity,
       entityId: this.extractId(responseData, request),
       action: metadata.action,
@@ -70,10 +97,23 @@ export class LoggingInterceptor implements NestInterceptor {
     });
   }
 
-  private extractId(data: unknown, request: Request): number | null {
-    if (data && typeof data === 'object' && 'id' in data) {
-      return Number((data as { id: any }).id) || null;
+  private extractId(
+    data: unknown,
+    request: Request,
+  ): string | null {
+    // Daca data are id de tip string
+    if (
+      data &&
+      typeof data === 'object' &&
+      'id' in data &&
+      typeof (data as { id?: unknown }).id === 'string'
+    ) {
+      return (data as { id: string }).id;
     }
-    return Number(request.params.id) || null;
+
+    // Altfel, convertim la string daca e array
+    const param = request.params?.id;
+    if (!param) return null;
+    return Array.isArray(param) ? param[0] : param;
   }
 }

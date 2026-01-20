@@ -60,7 +60,7 @@ export class UsersService {
       where: { deletedAt: null },
       take,
       ...(cursor && {
-        cursor: { id: Number(cursor) },
+        cursor: { id: cursor },
         skip: 1,
       }),
       orderBy: { id: 'desc' },
@@ -87,9 +87,9 @@ export class UsersService {
     };
   }
 
-  async findOne(id: number) {
-    if (id <= 0) {
-      throw new BadRequestException('ID must be a positive number');
+  async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('ID must be a valid string');
     }
 
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -97,7 +97,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto) {
     const user = await this.findOne(id);
     if (!user) throw new NotFoundException(`User with ID ${id} not found`);
 
@@ -131,7 +131,7 @@ export class UsersService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const user = await this.findOne(id);
     if (!user) throw new NotFoundException(`User with ID ${id} not found`);
 
@@ -141,7 +141,7 @@ export class UsersService {
     });
   }
 
-  async updateAvatar(id: number, avatarUrl: string | null) {
+  async updateAvatar(id: string, avatarUrl: string | null) {
     const user = await this.findOne(id);
 
     if (user.avatarUrl) {

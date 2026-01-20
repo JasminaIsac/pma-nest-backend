@@ -7,7 +7,7 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 export class ConversationsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createConversationDto: CreateConversationDto, userId: number) {
+  async create(createConversationDto: CreateConversationDto, userId: string) {
     const participants = await this.prisma.user.findMany({
       where: { id: { in: createConversationDto.participantIds } },
     });
@@ -68,7 +68,7 @@ export class ConversationsService {
     return conversation;
   }
 
-  async findAll(userId: number) {
+  async findAll(userId: string) {
     return await this.prisma.conversation.findMany({
       where: {
         participants: {
@@ -99,7 +99,7 @@ export class ConversationsService {
     });
   }
 
-  async findAllCursor(userId: number, limit = 10, cursor?: string) {
+  async findAllCursor(userId: string, limit = 10, cursor?: string) {
     const take = limit + 1;
 
     const conversations = await this.prisma.conversation.findMany({
@@ -111,7 +111,7 @@ export class ConversationsService {
       },
       take,
       ...(cursor && {
-        cursor: { id: Number(cursor) },
+        cursor: { id: cursor },
         skip: 1,
       }),
       orderBy: { id: 'desc' },
@@ -144,9 +144,9 @@ export class ConversationsService {
     };
   }
 
-  async findOne(id: number, userId: number) {
-    if (id <= 0) {
-      throw new BadRequestException('The conversation ID must be a positive integer');
+  async findOne(id: string, userId: string) {
+    if (!id) {
+      throw new BadRequestException('ID must be a valid UUID v4');
     }
 
     const conversation = await this.prisma.conversation.findUnique({
@@ -204,7 +204,7 @@ export class ConversationsService {
     return conversation;
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: string, userId: string) {
     const conversation = await this.findOne(id, userId);
     if (!conversation) {
       throw new NotFoundException(`The conversation with ID ${id} was not found`);

@@ -14,11 +14,7 @@ import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtGuard } from '../auth/guards/jwt.guard';
-
-interface JwtPayload {
-  userId: number;
-  email: string;
-}
+import { JwtPayload } from '../auth/decorators/current-user.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: JwtPayload;
@@ -45,7 +41,7 @@ export class MessagesController {
   @ApiOperation({ summary: 'Get all messages from a conversation' })
   @ApiResponse({ status: 200, description: 'Messages list' })
   findByConversation(@Param('conversationId') conversationId: string, @Request() req: AuthenticatedRequest) {
-    return this.messagesService.findByConversation(+conversationId, req.user.userId);
+    return this.messagesService.findByConversation(conversationId, req.user.userId);
   }
 
   @Get('conversation/:conversationId')
@@ -62,7 +58,7 @@ export class MessagesController {
     @Query('cursor') cursor?: string,
   ) {
     return this.messagesService.findByConversationCursor(
-      +conversationId,
+      conversationId,
       req.user.userId,
       limit ? Number(limit) : 20,
       cursor,
@@ -76,7 +72,7 @@ export class MessagesController {
   @ApiResponse({ status: 200, description: 'Message found' })
   @ApiResponse({ status: 404, description: 'Message not found' })
   findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.messagesService.findOne(+id, req.user.userId);
+    return this.messagesService.findOne(id, req.user.userId);
   }
 
   @Put(':id')
@@ -86,7 +82,7 @@ export class MessagesController {
   @ApiResponse({ status: 200, description: 'Message updated' })
   @ApiResponse({ status: 404, description: 'Message not found' })
   update(@Param('id') id: string, @Body() updateMessageDto: UpdateMessageDto, @Request() req: AuthenticatedRequest) {
-    return this.messagesService.update(+id, updateMessageDto, req.user.userId);
+    return this.messagesService.update(id, updateMessageDto, req.user.userId);
   }
 
   @Delete(':id')
@@ -96,6 +92,6 @@ export class MessagesController {
   @ApiResponse({ status: 200, description: 'Message deleted' })
   @ApiResponse({ status: 404, description: 'Message not found' })
   remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.messagesService.remove(+id, req.user.userId);
+    return this.messagesService.remove(id, req.user.userId);
   }
 }

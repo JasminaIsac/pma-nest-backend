@@ -1,11 +1,4 @@
-import {
-  IsNotEmpty,
-  IsEnum,
-  IsInt,
-  IsPositive,
-  IsArray,
-  ArrayMinSize,
-} from 'class-validator';
+import { IsNotEmpty, IsEnum, IsArray, ArrayMinSize } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ConversationType } from 'src/generated/prisma/client';
 
@@ -15,11 +8,9 @@ export class CreateConversationDto {
   @IsNotEmpty({ message: 'Conversation type is required' })
   type: ConversationType;
 
-  @ApiProperty({ example: [2, 3], description: 'List of participant IDs' })
+  @ApiProperty({ example: ['550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001'], description: 'List of participant IDs' })
   @IsArray({ message: 'Participant IDs must be an array' })
   @ArrayMinSize(1, { message: 'At least one participant ID is required' })
-  @IsInt({ each: true, message: 'Each participant ID must be an integer' })
-  @IsPositive({ each: true, message: 'Each participant ID must be a positive integer' })
   @IsNotEmpty({ message: 'Participant IDs are required' })
-  participantIds: number[];
+  participantIds: string[];
 }

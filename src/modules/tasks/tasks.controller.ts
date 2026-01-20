@@ -32,15 +32,15 @@ export class TasksController {
   @ApiOperation({ summary: 'Create a new task' })
   @ApiResponse({ status: 201, description: 'Task was created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
-  create(@Body() createTaskDto: CreateTaskDto) {
-    return this.tasksService.create(createTaskDto);
+  async create(@Body() createTaskDto: CreateTaskDto) {
+    return await this.tasksService.create(createTaskDto);
   }
 
   @Get('all')
   @ApiOperation({ summary: 'Get all tasks (no pagination)' })
   @ApiResponse({ status: 200, description: 'List of all tasks' })
-  findAll() {
-    return this.tasksService.findAll();
+  async findAll() {
+    return await this.tasksService.findAll();
   }
 
   @Get('')
@@ -48,11 +48,11 @@ export class TasksController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'cursor', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Paginated list of tasks' })
-  findAllCursor(
+  async findAllCursor(
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
-    return this.tasksService.findAllCursor(
+    return await this.tasksService.findAllCursor(
       limit ? Number(limit) : 10,
       cursor,
     );
@@ -62,8 +62,8 @@ export class TasksController {
   @ApiOperation({ summary: 'Get a task by ID' })
   @ApiResponse({ status: 200, description: 'Task found' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  findOne(@Param('id') id: string) {
-    return this.tasksService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    return await this.tasksService.findOne(id);
   }
 
   @Patch(':id')
@@ -74,8 +74,8 @@ export class TasksController {
   @ApiOperation({ summary: 'Update a task' })
   @ApiResponse({ status: 200, description: 'Task was updated successfully' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
-    return this.tasksService.update(+id, updateTaskDto);
+  async update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
+    return await this.tasksService.update(id, updateTaskDto);
   }
 
   @Delete(':id')
@@ -86,7 +86,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Delete a task' })
   @ApiResponse({ status: 200, description: 'Task was deleted successfully' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  remove(@Param('id') id: string) {
-    return this.tasksService.remove(+id);
+  async remove(@Param('id') id: string) {
+    return await this.tasksService.remove(id);
   }
 }

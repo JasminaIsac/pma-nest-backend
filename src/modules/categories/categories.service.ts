@@ -30,9 +30,9 @@ export class CategoriesService {
     });
   }
 
-  async findOne(id: number) {
-    if (id <= 0) {
-      throw new BadRequestException('ID must be a positive integer');
+  async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('ID must be provided');
     }
 
     const category = await this.prisma.category.findFirst({
@@ -44,7 +44,7 @@ export class CategoriesService {
     return category;
   }
 
-  async update(id: number, updateCategoryDto: UpdateCategoryDto) {
+  async update(id: string, updateCategoryDto: UpdateCategoryDto) {
     const category = await this.findOne(id);
     if (!category) {
       throw new NotFoundException(`The category with ID ${id} was not found`);
@@ -61,14 +61,11 @@ export class CategoriesService {
 
       return await this.prisma.category.update({
         where: { id },
-        // data: {
-        //   ...(updateCategoryDto.title && { title: updateCategoryDto.title }),
-        // },
         data: updateCategoryDto,
       });
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const category = await this.findOne(id);
     if (!category) {
       throw new NotFoundException(`The category with ID ${id} was not found`);

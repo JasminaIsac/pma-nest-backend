@@ -1,14 +1,5 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  ParseIntPipe,
-  Query,
-} from '@nestjs/common';
+  Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -60,9 +51,10 @@ export class ProjectsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a project by ID' })
-  @ApiResponse({ status: 200, description: 'Project retrieved successfully' })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  @ApiOperation({ summary: 'Get a task by ID' })
+  @ApiResponse({ status: 200, description: 'Task found' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  async findOne(@Param('id') id: string) {
     return await this.projectsService.findOne(id);
   }
 
@@ -74,7 +66,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Update a project' })
   @ApiResponse({ status: 200, description: 'Project updated successfully' })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateProjectDto: UpdateProjectDto,
   ) {
     return await this.projectsService.update(id, updateProjectDto);
@@ -87,7 +79,7 @@ export class ProjectsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a project' })
   @ApiResponse({ status: 200, description: 'Project deleted successfully' })
-  async remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id') id: string) {
     return await this.projectsService.remove(id);
   }
 }

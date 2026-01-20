@@ -53,7 +53,7 @@ export class ProjectsService {
       where: { deletedAt: null },
       take,
       ...(cursor && {
-        cursor: { id: Number(cursor) },
+        cursor: { id: cursor },
         skip: 1,
       }),
       orderBy: { id: 'desc' },
@@ -69,9 +69,9 @@ export class ProjectsService {
     };
   }
 
-  async findOne(id: number) {
-    if (id <= 0) {
-      throw new BadRequestException('ID must be a positive number');
+  async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('ID must be a valid UUID v4');
     }
 
     const project = await this.prisma.project.findFirst({
@@ -81,7 +81,7 @@ export class ProjectsService {
     return project;
   }
 
-  async update(id: number, updateProjectDto: UpdateProjectDto) {
+  async update(id: string, updateProjectDto: UpdateProjectDto) {
     const project = await this.findOne(id);
     if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
 
@@ -122,7 +122,7 @@ export class ProjectsService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: string) {
     const project = await this.findOne(id);
     if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
 

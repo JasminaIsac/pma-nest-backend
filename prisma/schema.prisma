@@ -56,11 +56,11 @@ enum MessageStatus {
 }
 
 enum LogAction {
-  CREATE   @map("CREATE")
-  UPDATE   @map("UPDATE")
-  DELETE   @map("DELETE")
-  LOGIN    @map("LOGIN")
-  LOGOUT   @map("LOGOUT")
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
 }
 
 enum LogEntity {
@@ -71,7 +71,7 @@ enum LogEntity {
 }
 
 model User {
-  id                Int                  @id @default(autoincrement())
+  id                String               @id @default(uuid()) @db.Uuid
   email             String               @unique
   name              String
   role              UserRole
@@ -95,7 +95,7 @@ model User {
 }
 
 model Conversation {
-  id            Int                     @id @default(autoincrement())
+  id            String                  @id @default(uuid()) @db.Uuid
   type          ConversationType
   createdAt     DateTime                @default(now()) @map("created_at")
   updatedAt     DateTime                @updatedAt @map("updated_at")
@@ -108,11 +108,11 @@ model Conversation {
 }
 
 model ConversationParticipant {
-  id             Int          @id @default(autoincrement())
+  id             String       @id @default(uuid()) @db.Uuid
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId Int          @map("conversation_id")
+  conversationId String       @map("conversation_id") @db.Uuid
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         Int          @map("user_id")
+  userId         String       @map("user_id") @db.Uuid
   joinedAt       DateTime     @default(now()) @map("joined_at")
   lastReadAt     DateTime?    @map("last_read_at")
 
@@ -121,11 +121,11 @@ model ConversationParticipant {
 }
 
 model ConversationMessage {
-  id             Int            @id @default(autoincrement())
+  id             String         @id @default(uuid()) @db.Uuid
   conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId Int            @map("conversation_id")
+  conversationId String         @map("conversation_id") @db.Uuid
   sender         User           @relation("MessageSender", fields: [senderId], references: [id])
-  senderId       Int            @map("sender_id")
+  senderId       String         @map("sender_id") @db.Uuid
   message        String
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
@@ -136,7 +136,7 @@ model ConversationMessage {
 }
 
 model Category {
-  id         Int       @id @default(autoincrement())
+  id         String    @id @default(uuid()) @db.Uuid
   title      String    @unique
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
@@ -147,12 +147,12 @@ model Category {
 }
 
 model Project {
-  id          Int       @id @default(autoincrement())
+  id          String    @id @default(uuid()) @db.Uuid
   name        String
   description String?   @default("No description")
-  categoryId  Int       @map("category_id")
+  categoryId  String    @map("category_id") @db.Uuid
   status      ProjectStatus @default(NEW)
-  managerId   Int       @map("manager_id")
+  managerId   String    @map("manager_id") @db.Uuid
   coverUrl    String?   @map("cover_url")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -168,12 +168,12 @@ model Project {
 }
 
 model UsersToProjects {
-  id        Int        @id @default(autoincrement())
-  projectId Int        @map("project_id")
-  userId    Int        @map("user_id")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  userRole  UserRole   @default(DEVELOPER) @map("user_role")
+  id        String      @id @default(uuid()) @db.Uuid
+  projectId String      @map("project_id") @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  userRole  UserRole    @default(DEVELOPER) @map("user_role")
 
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_project_user")
   user      User       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_to_projects_developer_id_fkey")
@@ -183,17 +183,17 @@ model UsersToProjects {
 }
 
 model Task {
-  id          Int        @id @default(autoincrement())
+  id          String       @id @default(uuid()) @db.Uuid
   title       String
   description String?
-  projectId   Int          @map("project_id")
+  projectId   String       @map("project_id") @db.Uuid
   priority    TaskPriority @default(MEDIUM)
-  assignedTo  Int          @map("assigned_to")
+  assignedTo  String       @map("assigned_to") @db.Uuid
   deadline    DateTime
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  status      TaskStatus  @default(NEW)
-  deletedAt   DateTime?   @map("deleted_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  status      TaskStatus   @default(NEW)
+  deletedAt   DateTime?    @map("deleted_at")
 
   project     Project @relation(fields: [projectId], references: [id])
   assignee    User    @relation(fields: [assignedTo], references: [id])
@@ -202,16 +202,16 @@ model Task {
 }
 
 model Log {
-  id          Int       @id @default(autoincrement())
-  userId      Int       @map("user_id")
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
   entity      LogEntity 
-  entityId    Int?      @map("entity_id")
+  entityId    String?    @map("entity_id") @db.Uuid
   action      LogAction
   before      String?   
   after       String?   
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
-  user        User     @relation(fields: [userId], references: [id])
-  
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  user        User       @relation(fields: [userId], references: [id])
+
   @@map("logs")
 }
