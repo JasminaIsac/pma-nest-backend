@@ -11,7 +11,9 @@ export class CreateUserToProjectDto {
   userId: string;
 
   @ApiProperty({ example: 'developer', enum: UserRole, default: UserRole.DEVELOPER })
-  @IsEnum(UserRole, { message: `Role must be one of the following: ${Object.values(UserRole).join(', ')}` })
+  @IsEnum(UserRole, { message: `Role must be one of the following: ${Object.values(UserRole)
+      .map(role => role.toLowerCase())
+      .join(', ')}`, })
   @IsNotEmpty({ message: 'Role is required' })
   userRole: UserRole;
 }

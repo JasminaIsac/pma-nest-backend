@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersToProjectsService } from './users-to-projects.service';
@@ -55,11 +56,26 @@ export class UsersToProjectsController {
     return await this.usersToProjectsService.findByProject(projectId);
   }
 
-  @Get('user/:userId')
+  @Get('user/:userId/all')
   @ApiOperation({ summary: 'Get all projects of a user' })
   @ApiResponse({ status: 200, description: 'List of user projects' })
   async findByUser(@Param('userId') userId: string) {
     return await this.usersToProjectsService.findByUser(userId);
+  }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'Get all projects of a user' })
+  @ApiResponse({ status: 200, description: 'List of user projects' })
+  async findAllCursor(
+    @Param('userId') userId: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return await this.usersToProjectsService.findProjectsByUserCursor(
+      userId,
+      limit ? Number(limit) : 10,
+      cursor,
+    );
   }
 
   @Patch(':id')

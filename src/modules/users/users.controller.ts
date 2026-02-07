@@ -14,11 +14,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 import { JwtGuard } from '../auth/guards/jwt.guard';
+import { OwnerOrAdminGuard } from 'src/common/guards/owner-or-admin.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from 'src/generated/prisma/client';
 import { LogActivity } from 'src/common/decorators/log-action.decorator';
-import { LogEntity, LogAction } from 'src/generated/prisma/client';
+import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator';
+import { UserRole, LogEntity, LogAction } from 'src/generated/prisma/client';
 
 @ApiTags('users')
 @Controller('users')
@@ -67,16 +68,23 @@ export class UsersController {
     return await this.usersService.findOne(id);
   }
 
+  @Get(':id/projects/count')
+  @ApiOperation({ summary: 'Get user projects count' })
+  @ApiResponse({ status: 200, description: 'User projects count' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserProjectsCount(@Param('id') id: string) {
+    return await this.usersService.getUserProjectsCount(id);
+  }
+
   @Patch(':id')
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtGuard, OwnerOrAdminGuard)
   @ApiBearerAuth()
   @LogActivity(LogEntity.USER, LogAction.UPDATE)
   @ApiOperation({ summary: 'Update user' })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return await this.usersService.update(id, updateUserDto);
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @CurrentUser() user: JwtPayload) {
+    return await this.usersService.update(id, updateUserDto, user.role);
   }
 
   @Delete(':id')

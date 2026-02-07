@@ -15,4 +15,9 @@ export class ChangePasswordDto {
     message: 'New password must contain at least one uppercase letter, one lowercase letter, and one number',
   })
   newPassword: string;
+
+  @ApiProperty({ example: 'newPassword123' })
+  @IsString({ message: 'Confirm password must be text' })
+  @IsNotEmpty({ message: 'Confirm password is required' })
+  confirmPassword: string;
 }

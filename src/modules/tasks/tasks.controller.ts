@@ -66,9 +66,43 @@ export class TasksController {
     return await this.tasksService.findOne(id);
   }
 
+  @Get('project/:projectId')
+  @ApiOperation({ summary: 'Get tasks by project ID' })
+  @ApiResponse({ status: 200, description: 'List of tasks for the project' })
+  async findByProjectId(@Param('projectId') projectId: string) {
+    return await this.tasksService.findByProjectId(projectId);
+  }
+
+  @Get('assignee/:assigneeId')
+  @ApiOperation({ summary: 'Get tasks by assignee ID' })
+  @ApiResponse({ status: 200, description: 'List of tasks for the assignee' })
+  async findByAssigneeId(@Param('assigneeId') assigneeId: string) {
+    return await this.tasksService.findByUserId(assigneeId);
+  }
+
+  @Get('project/:projectId/assignee/:assigneeId')
+  @ApiOperation({ summary: 'Get tasks by project ID and assignee ID' })
+  @ApiResponse({ status: 200, description: 'List of tasks for the project and assignee' })
+  async findByProjectIdAndAssigneeId(@Param('projectId') projectId: string, @Param('assigneeId') assigneeId: string) {
+    return await this.tasksService.findByProjectIdAndAssigneeId(projectId, assigneeId);
+  }
+
+  @Get('project/:projectId/assignee/:assigneeId/count')
+  @ApiOperation({ summary: 'Get task count by project ID and assignee ID' })
+  @ApiResponse({ status: 200, description: 'Count of tasks for the project and assignee' })
+  async countByProjectIdAndAssigneeId(@Param('projectId') projectId: string, @Param('assigneeId') assigneeId: string) {
+    return await this.tasksService.countByProjectIdAndAssigneeId(projectId, assigneeId);
+  }
+
+  @Get('project/:projectId/count')
+  @ApiOperation({ summary: 'Get task count by project ID' })
+  @ApiResponse({ status: 200, description: 'Count of tasks for the project' })
+  async getTaskCountByMember(@Param('projectId') projectId: string) {
+    return await this.tasksService.getTaskCountByMember(projectId);
+  }
+
   @Patch(':id')
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
+  @UseGuards(JwtGuard)
   @ApiBearerAuth()
   @LogActivity(LogEntity.TASK, LogAction.UPDATE)
   @ApiOperation({ summary: 'Update a task' })

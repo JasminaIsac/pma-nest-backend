@@ -53,6 +53,7 @@ export class UsersToProjectsService {
             id: true,
             name: true,
             email: true,
+            avatarUrl: true,
           },
         },
       },
@@ -74,6 +75,7 @@ export class UsersToProjectsService {
             id: true,
             name: true,
             email: true,
+            avatarUrl: true,
           },
         },
       },
@@ -101,6 +103,7 @@ export class UsersToProjectsService {
             id: true,
             name: true,
             email: true,
+            avatarUrl: true,
           },
         },
       },
@@ -123,21 +126,23 @@ export class UsersToProjectsService {
       throw new BadRequestException(`The project with ID ${projectId} does not exist`);
     }
 
-    return await this.prisma.usersToProjects.findMany({
-      where: { projectId: projectId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
+  return await this.prisma.usersToProjects.findMany({
+    where: { projectId },
+    select: {
+      id: true,
+      userRole: true, // rolul în cadrul proiectului
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
         },
       },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
 
   async findByUser(userId: string) {
     if (!userId) {
@@ -166,6 +171,56 @@ export class UsersToProjectsService {
       orderBy: { createdAt: 'asc' },
     });
   }
+
+  async findProjectsByUserCursor(userId: string, limit = 10, cursor?: string) {
+    if (!userId) {
+      throw new BadRequestException('The user ID must be provided');
+    }
+
+    const userExists = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!userExists) {
+      throw new BadRequestException(`User with ID ${userId} does not exist`);
+    }
+
+    const take = limit + 1;
+
+    // găsește proiectele userului cu cursor și sortare după updatedAt desc
+    const projectsToUser = await this.prisma.usersToProjects.findMany({
+      where: { userId },
+      take,
+      ...(cursor && { 
+        cursor: { id: cursor }, // cursor-ul se bazează pe projectId
+        skip: 1 
+      }),
+      orderBy: { project: { updatedAt: 'desc' } }, // cele mai recent actualizate primele
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            status: true,
+            updatedAt: true,
+            category: { select: { name: true } },
+            manager: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    const hasMore = projectsToUser.length > limit;
+    const items = hasMore ? projectsToUser.slice(0, limit) : projectsToUser;
+
+    // returnăm doar proiectul, nu relația usersToProjects
+    return {
+      items: items.map(p => p.project),
+      nextCursor: hasMore ? items[items.length - 1].id : null,
+      hasMore,
+    };
+  }
+
 
   async update(id: string, updateUserToProjectDto: UpdateUserToProjectDto) {
     const relation = await this.findOne(id);

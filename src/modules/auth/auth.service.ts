@@ -36,7 +36,7 @@ export class AuthService {
       throw new UnauthorizedException('User has been deleted');
     }
 
-    const token = this.tokenService.generateToken(user.id, user.email);
+    const token = this.tokenService.generateToken(user.id, user.email, user.role as string);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userData } = user;
@@ -78,6 +78,10 @@ export class AuthService {
       );
     }
 
+    if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+      throw new BadRequestException('New password and confirm password do not match');
+    }
+
     const hashedPassword = await this.hashService.hashPassword(
       changePasswordDto.newPassword,
     );
@@ -89,6 +93,7 @@ export class AuthService {
 
     return {
       success: true,
+      status: 200,
       message: 'Password changed successfully',
     };
   }

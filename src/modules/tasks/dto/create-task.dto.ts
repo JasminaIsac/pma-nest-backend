@@ -8,16 +8,16 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { TaskPriority, TaskStatus } from 'src/generated/prisma/client';
+import { TaskPriority } from 'src/generated/prisma/client';
 import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Authentification with JWT', minLength: 3, maxLength: 200 })
-  @IsString({ message: 'Title must be text' })
-  @IsNotEmpty({ message: 'Title is required' })
-  @MinLength(3, { message: 'Title must be at least 3 characters long' })
-  @MaxLength(200, { message: 'Title must not exceed 200 characters' })
-  title: string;
+  @IsString({ message: 'Task name must be text' })
+  @IsNotEmpty({ message: 'Task name is required' })
+  @MinLength(3, { message: 'Task name must be at least 3 characters long' })
+  @MaxLength(200, { message: 'Task name must not exceed 200 characters' })
+  name: string;
 
   @ApiProperty({ example: 'Implementarea sistemului de autentificare cu JWT', required: false, maxLength: 1000 })
   @IsString({ message: 'Description must be text' })
@@ -39,8 +39,4 @@ export class CreateTaskDto {
   @IsISO8601({ strict: true }, { message: 'Deadline must be in ISO8601 format' })
   @IsNotEmpty({ message: 'Deadline is required' })
   deadline: string;
-
-  @ApiProperty({ example: 'new', enum: TaskStatus, default: TaskStatus.NEW })
-  @IsEnum(TaskStatus, { message: 'Status must be: new, in progress, paused, to check or completed' })
-  status: TaskStatus;
 }

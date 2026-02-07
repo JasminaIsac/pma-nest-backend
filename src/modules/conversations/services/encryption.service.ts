@@ -35,32 +35,37 @@ export class EncryptionService {
    * @param ciphertext - The encrypted message in format: iv:encryptedData (base64 encoded)
    * @returns Decrypted message
    */
+  // encryption.service.ts
+
   decrypt(ciphertext: string): string {
+    if (!ciphertext) return '';
+    
     try {
-      // Decode from base64
+      // 1. Încercăm să decodăm din base64
       const combined = Buffer.from(ciphertext, 'base64').toString('utf8');
-      const parts = combined.split(':');
       
-      if (parts.length !== 2) {
-        throw new Error('Invalid ciphertext format');
+      // 2. Verificăm dacă are structura așteptată iv:encrypted
+      if (!combined.includes(':')) {
+        return ciphertext; // Nu pare a fi un mesaj criptat, returnăm textul brut
       }
+
+      const parts = combined.split(':');
+      if (parts.length !== 2) return ciphertext;
 
       const iv = Buffer.from(parts[0], 'hex');
       const encrypted = parts[1];
       
-      // Ensure key is exactly 32 bytes
       const key = Buffer.from(this.encryptionKey.substring(0, 32).padEnd(32, '0'));
-      
-      // Create decipher
       const decipher = crypto.createDecipheriv(this.algorithm, key, iv);
       
-      // Decrypt the message
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       
       return decrypted;
-    } catch {
-      throw new Error('Failed to decrypt message');
+    } catch (error) {
+      // În loc să aruncăm eroare, logăm problema și returnăm textul original
+      console.warn('⚠️ Decryption failed for a message. Returning raw data: ', error);
+      return ciphertext; 
     }
   }
 }

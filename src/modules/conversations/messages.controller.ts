@@ -1,7 +1,6 @@
 import {
   Controller,
-  Get, Put,
-  Post,
+  Get, Put, Patch, Post,
   Body,
   Param,
   Delete,
@@ -14,7 +13,7 @@ import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { JwtGuard } from '../auth/guards/jwt.guard';
-import { JwtPayload } from '../auth/decorators/current-user.decorator';
+import { JwtPayload, CurrentUser } from '../auth/decorators/current-user.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: JwtPayload;
@@ -56,7 +55,7 @@ export class MessagesController {
     @Request() req: AuthenticatedRequest,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
-  ) {
+  ){
     return this.messagesService.findByConversationCursor(
       conversationId,
       req.user.userId,
@@ -83,6 +82,19 @@ export class MessagesController {
   @ApiResponse({ status: 404, description: 'Message not found' })
   update(@Param('id') id: string, @Body() updateMessageDto: UpdateMessageDto, @Request() req: AuthenticatedRequest) {
     return this.messagesService.update(id, updateMessageDto, req.user.userId);
+  }
+
+  @Patch('read/:conversationId')
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mark a conversation as read' })
+  @ApiResponse({ status: 200, description: 'Conversation marked as read' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  markAsRead(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser('userId') user: JwtPayload,
+  ) {
+    return this.messagesService.markAsRead(conversationId, user.userId);
   }
 
   @Delete(':id')

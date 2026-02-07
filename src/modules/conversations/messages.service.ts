@@ -3,13 +3,21 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { EncryptionService } from './services/encryption.service';
+import { ConversationMessage } from 'src/generated/prisma/client';
 
-interface Participant {
+export interface Participant {
   id: string;
   conversationId: string;
   userId: string;
   joinedAt: Date;
   lastReadAt: Date | null;
+}
+
+export interface PaginatedMessages {
+  items: ConversationMessage[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  participants: Participant[];
 }
 
 @Injectable()
@@ -40,22 +48,36 @@ export class MessagesService {
 
     const encryptedMessage = this.encryptionService.encrypt(createMessageDto.message);
 
-    const message = await this.prisma.conversationMessage.create({
-      data: {
-        conversationId: createMessageDto.conversationId,
-        senderId: userId,
-        message: encryptedMessage,
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // Folosim $transaction pentru a rula ambele operații deodată
+    const [message] = await this.prisma.$transaction([
+      this.prisma.conversationMessage.create({
+        data: {
+          conversationId: createMessageDto.conversationId,
+          senderId: userId,
+          message: encryptedMessage,
+        },
+        include: {
+          sender: {
+            select: { id: true, name: true, avatarUrl: true },
           },
         },
-      },
-    });
+      }),
+      // Actualizăm lastReadAt pentru expeditor deodată
+      this.prisma.conversationParticipant.update({
+        where: {
+          conversationId_userId: {
+            conversationId: createMessageDto.conversationId,
+            userId: userId,
+          },
+        },
+        data: { lastReadAt: new Date() },
+      }),
+
+      this.prisma.conversation.update({
+        where: { id: createMessageDto.conversationId },
+        data: { updatedAt: new Date() }
+      })
+    ]);
 
     return {
       ...message,
@@ -89,11 +111,12 @@ export class MessagesService {
           select: {
             id: true,
             name: true,
-            email: true,
+            avatarUrl: true,
+            status: true
           },
         },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     return messages.map((msg) => ({
@@ -107,10 +130,26 @@ export class MessagesService {
     userId: string,
     limit = 20,
     cursor?: string,
-  ) {
+  ) : Promise<PaginatedMessages> {
+    if (!conversationId || conversationId === 'undefined') {
+      throw new BadRequestException('A valid Conversation UUID is required');
+    }
+
     const conversation = await this.prisma.conversation.findFirst({
       where: { id: conversationId, deletedAt: null },
-      include: { participants: true },
+      include: { 
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true
+              }
+            }
+          }
+        } 
+      },
     });
 
     if (!conversation) {
@@ -133,9 +172,15 @@ export class MessagesService {
         cursor: { id: cursor },
         skip: 1,
       }),
-      orderBy: { id: 'desc' },
+      orderBy: { createdAt: 'desc' },
       include: {
-        sender: { select: { id: true, name: true, email: true } },
+        sender: { 
+          select: { 
+            id: true, 
+            name: true, 
+            avatarUrl: true 
+          } 
+        },
       },
     });
 
@@ -149,6 +194,7 @@ export class MessagesService {
       })),
       nextCursor: hasMore ? items[items.length - 1].id : null,
       hasMore,
+      participants: participants
     };
   }
 
@@ -169,7 +215,7 @@ export class MessagesService {
           select: {
             id: true,
             name: true,
-            email: true,
+            avatarUrl: true,
           },
         },
       },
@@ -221,6 +267,30 @@ export class MessagesService {
       where: { id },
       data: { message: this.encryptionService.encrypt(updateMessageDto.message) },
     })
+  }
+
+  async markAsRead(conversationId: string, userId: string) {
+    const participant = await this.prisma.conversationParticipant.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId,
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new BadRequestException('User is not a participant in this conversation');
+    }
+
+    return await this.prisma.conversationParticipant.update({
+      where: {
+        id: participant.id,
+      },
+      data: {
+        lastReadAt: new Date(),
+      },
+    });
   }
 
   async remove(id: string, userId: string) {

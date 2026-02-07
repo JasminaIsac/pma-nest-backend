@@ -12,13 +12,15 @@ export class TasksService {
     const projectExists = await this.prisma.project.findUnique({
       where: { id: createTaskDto.projectId },
     });
-    if (!projectExists) {
-      throw new BadRequestException(`Project with ID ${createTaskDto.projectId} does not exist`);
+
+    if (!projectExists || projectExists.deletedAt !== null) {
+      throw new BadRequestException(`Project with ID ${createTaskDto.projectId} does not exist or has been deleted`);
     }
 
     const userExists = await this.prisma.user.findUnique({
       where: { id: createTaskDto.assignedTo },
     });
+
     if (!userExists || userExists.deletedAt !== null) {
       throw new BadRequestException(`User with ID ${createTaskDto.assignedTo} does not exist or has been deleted`);
     }
@@ -30,13 +32,13 @@ export class TasksService {
 
     return await this.prisma.task.create({
       data: {
-        title: createTaskDto.title,
+        name: createTaskDto.name,
         description: createTaskDto.description,
         projectId: createTaskDto.projectId,
         priority: createTaskDto.priority || TaskPriority.MEDIUM,
         assignedTo: createTaskDto.assignedTo,
         deadline: deadlineDate,
-        status: createTaskDto.status || TaskStatus.NEW,
+        status: TaskStatus.NEW,
       },
     });
   }
@@ -45,10 +47,8 @@ export class TasksService {
     return await this.prisma.task.findMany({
       where: { deletedAt: null },
       include: {
-        project: true,
-        assignee: {
-          select: { id: true, name: true, email: true },
-        },
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
       },
     });  
   }
@@ -65,10 +65,8 @@ export class TasksService {
       }),
       orderBy: { id: 'desc' },
       include: {
-        project: true,
-        assignee: {
-          select: { id: true, name: true, email: true },
-        },
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
       },
     });
 
@@ -90,20 +88,89 @@ export class TasksService {
     const task = await this.prisma.task.findFirst({
       where: { id, deletedAt: null },
       include: {
-        project: true,
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
       },
     });
     if (!task) {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
     return task;
+  }
+
+  async findByProjectId(projectId: string) {
+    if (!projectId) {
+      throw new BadRequestException('Project ID must be provided');
+    }
+    return await this.prisma.task.findMany({
+      where: { projectId, deletedAt: null },
+      include: {
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  async findByUserId(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID must be provided');
+    }
+    return await this.prisma.task.findMany({
+      where: { assignedTo: userId, deletedAt: null },
+      include: {
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  async findByProjectIdAndAssigneeId(projectId: string, assigneeId: string) {
+    if (!projectId || !assigneeId) {
+      throw new BadRequestException('Project ID and Assignee ID must be provided');
+    }
+    return await this.prisma.task.findMany({
+      where: { projectId, assignedTo: assigneeId, deletedAt: null },
+      include: {
+        project: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true } },
+      },
+    });
+  }
+
+  async countByProjectIdAndAssigneeId(projectId: string, assigneeId: string) {
+    if (!projectId || !assigneeId) {
+      throw new BadRequestException('Project ID and Assignee ID must be provided');
+    }
+    return await this.prisma.task.count({
+      where: { projectId, assignedTo: assigneeId, deletedAt: null },
+    });
+  }
+
+  async getTaskCountByMember(projectId: string) {
+    const members = await this.prisma.usersToProjects.findMany({
+      where: { projectId },
+      select: { userId: true },
+    });
+
+    const counts = await Promise.all(
+      members.map(async (m) => {
+        const taskCount = await this.prisma.task.count({
+          where: {
+            projectId,
+            assignedTo: m.userId,
+            deletedAt: null,
+            status: { not: TaskStatus.COMPLETED },
+          },
+        });
+
+        return {
+          userId: m.userId,
+          taskCount,
+        };
+      })
+    );
+
+    return counts;
   }
 
   async update(id: string, updateTaskDto: UpdateTaskDto) {
@@ -137,27 +204,32 @@ export class TasksService {
       }
     }
 
-    return await this.prisma.task.update({
-      where: { id },
-      data: {
-        ...(updateTaskDto.title && { title: updateTaskDto.title }),
-        ...(updateTaskDto.description !== undefined && { description: updateTaskDto.description }),
-        ...(updateTaskDto.projectId && { projectId: updateTaskDto.projectId }),
-        ...(updateTaskDto.priority && { priority: updateTaskDto.priority }),
-        ...(updateTaskDto.assignedTo && { assignedTo: updateTaskDto.assignedTo }),
-        ...(updateTaskDto.deadline && { deadline: new Date(updateTaskDto.deadline) }),
-        ...(updateTaskDto.status && { status: updateTaskDto.status }),
-      },
-      include: {
-        project: true,
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Actualizăm task-ul
+      const updatedTask = await tx.task.update({
+        where: { id },
+        data: {
+          ...(updateTaskDto.name && { name: updateTaskDto.name }),
+          ...(updateTaskDto.description !== undefined && { description: updateTaskDto.description }),
+          ...(updateTaskDto.projectId && { projectId: updateTaskDto.projectId }),
+          ...(updateTaskDto.priority && { priority: updateTaskDto.priority }),
+          ...(updateTaskDto.assignedTo && { assignedTo: updateTaskDto.assignedTo }),
+          ...(updateTaskDto.deadline && { deadline: new Date(updateTaskDto.deadline) }),
+          ...(updateTaskDto.status && { status: updateTaskDto.status }),
         },
-      },
+        include: {
+          project: { select: { id: true, name: true } },
+          assignee: { select: { id: true, name: true } },
+        },
+      });
+
+      // 2. Actualizăm proiectul
+      await tx.project.update({
+        where: { id: updatedTask.projectId },
+        data: { updatedAt: new Date() },
+      });
+
+      return updatedTask;
     });
   }
 

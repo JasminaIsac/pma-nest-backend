@@ -1,5 +1,4 @@
-import {
-  Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -11,6 +10,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UserRole, LogEntity, LogAction } from 'src/generated/prisma/client';
 import { LogActivity } from 'src/common/decorators/log-action.decorator';
+import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('projects')
 @Controller('projects')
@@ -24,8 +24,11 @@ export class ProjectsController {
   @LogActivity(LogEntity.PROJECT, LogAction.CREATE)
   @ApiOperation({ summary: 'Create a new project' })
   @ApiResponse({ status: 201, description: 'Project created successfully' })
-  async create(@Body() createProjectDto: CreateProjectDto) {
-    return await this.projectsService.create(createProjectDto);
+  async create(
+    @Body() createProjectDto: CreateProjectDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.projectsService.create(createProjectDto, user.userId);
   }
 
   @Get('all')
@@ -58,6 +61,14 @@ export class ProjectsController {
     return await this.projectsService.findOne(id);
   }
 
+  @Get('/category/count')
+  @ApiOperation({ summary: 'Get projects count by category ID' })
+  @ApiResponse({ status: 200, description: 'Projects found' })
+  @ApiResponse({ status: 404, description: 'Projects not found' })
+  async findByCategory() {
+    return await this.projectsService.getProjectsCountByCategory();
+  }
+
   @Patch(':id')
   @UseGuards(JwtGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.PROJECT_MANAGER)
@@ -67,9 +78,10 @@ export class ProjectsController {
   @ApiResponse({ status: 200, description: 'Project updated successfully' })
   async update(
     @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
     @Body() updateProjectDto: UpdateProjectDto,
   ) {
-    return await this.projectsService.update(id, updateProjectDto);
+    return await this.projectsService.update(id, updateProjectDto, user.userId);
   }
 
   @Delete(':id')

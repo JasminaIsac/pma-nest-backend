@@ -6,7 +6,7 @@
  * Genereaza migrari noi: prisma migrate dev --name <name>
  */
 
-import { spawn } from 'child_process';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 
 const ENV_FILE = '.env';
@@ -28,44 +28,32 @@ if (!envContent.includes('DATABASE_URL')) {
 
 console.log('📦 Starting database migration...\n');
 
-// Funcție pentru a rula o comandă
-function runCommand(command: string, args: string[]): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve(code);
-      } else {
-        reject(new Error(`Command failed with exit code ${code}`));
-      }
-    });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
+// Funcție pentru a rula o comandă - Works on Windows, macOS, and Linux
+function runCommand(command: string): void {
+  execSync(command, { 
+    stdio: 'inherit'
   });
 }
 
-async function main() {
+function main() {
   try {
     console.log('🔄 Step 1: Generating Prisma Client...');
-    await runCommand('npx', ['prisma', 'generate']);
+    runCommand('npx prisma generate');
     console.log('✅ Prisma Client generated successfully\n');
 
     // Verifică dacă există migrări
     if (fs.existsSync(MIGRATIONS_DIR)) {
       console.log('🔄 Step 2: Deploying migrations...');
-      await runCommand('npx', ['prisma', 'migrate', 'deploy']);
+      runCommand('npx prisma migrate deploy');
       console.log('✅ Migrations deployed successfully\n');
     } else {
       console.log('⚠️  No migrations found. Running initial migration...');
-      await runCommand('npx', ['prisma', 'migrate', 'dev', '--name', 'init']);
+      runCommand('npx prisma migrate dev --name init');
       console.log('✅ Initial migration created\n');
     }
 
     console.log('🔄 Step 3: Syncing database schema...');
-    await runCommand('npx', ['prisma', 'db', 'push', '--skip-generate']);
+    runCommand('npx prisma db push --skip-generate');
     console.log('✅ Database schema synced\n');
 
     console.log('✨ Database migration completed successfully!');

@@ -4,6 +4,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationExceptionFilter } from './common/filters/validation.filter';
 import helmet from 'helmet';
+import { BadRequestException } from '@nestjs/common';
+import { ValidationError } from 'class-validator';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,11 +13,12 @@ async function bootstrap() {
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: false, // Dezactivăm CSP în dev pentru a permite conexiuni WS
     }),
   );
 
   app.enableCors({
-    origin: process.env.CLIENT_URL?.split(','),
+    origin: true, 
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -26,12 +29,21 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
+      forbidNonWhitelisted: true,
+      exceptionFactory: (errors: ValidationError[]): Error => {
+        console.log('❌ VALIDATION FAILED');
+        console.log(JSON.stringify(errors, null, 2));
+
+        return new BadRequestException({
+          message: 'Validation failed',
+          errors: errors.map((err) => ({
+            field: err.property,
+            value: err.value ? JSON.stringify(err.value) : null,
+            constraints: err.constraints ?? {},
+          })),
+        });
       },
-      errorHttpStatusCode: 400,
     }),
   );
 
@@ -57,7 +69,9 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port, '0.0.0.0');
+  
   console.log(`🚀 Application is running on: http://localhost:${process.env.PORT ?? 3000}`);
   console.log(`📚 Swagger documentation available at: http://localhost:${process.env.PORT ?? 3000}/api`);
 }

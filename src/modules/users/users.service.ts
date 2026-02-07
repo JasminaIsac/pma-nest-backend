@@ -88,16 +88,52 @@ export class UsersService {
   }
 
   async findOne(id: string) {
+
     if (!id) {
       throw new BadRequestException('ID must be a valid string');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException(`User with ID ${id} not found`);
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        tel: true,
+        location: true,
+        status: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user ) throw new NotFoundException(`User with ID ${id} not found or has been deleted`);
+
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async getUserProjectsCount(id: string) {
+    if (!id) {
+      throw new BadRequestException('ID must be a valid string');
+    }
+
+    const userExists = await this.prisma.user.findUnique({ where: { id } });
+    if (!userExists) throw new NotFoundException(`User with ID ${id} not found`);
+
+    const count = await this.prisma.usersToProjects.count({
+      where: { userId: id },
+    });
+
+    return { count };
+  };
+
+  async update(id: string, updateUserDto: UpdateUserDto, currentUserRole: string) {
+    if (updateUserDto.role && currentUserRole as UserRole !== UserRole.ADMIN) {
+      delete updateUserDto.role;
+    }
+    
     const user = await this.findOne(id);
     if (!user) throw new NotFoundException(`User with ID ${id} not found`);
 

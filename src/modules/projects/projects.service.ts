@@ -2,47 +2,70 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { ProjectStatus, UserRole, TaskStatus } from 'src/generated/prisma/enums';
 
 @Injectable()
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createProjectDto: CreateProjectDto) {
+  async create(createProjectDto: CreateProjectDto, currentUserId: string) {
     const categoryExists = await this.prisma.category.findUnique({
       where: { id: createProjectDto.categoryId },
     });
-    if (!categoryExists) {
-      throw new BadRequestException(`Category with ID ${createProjectDto.categoryId} does not exist`);
-    }
 
-    const managerExists = await this.prisma.user.findUnique({
-      where: { id: createProjectDto.managerId },
-    });
-    if (!managerExists) {
-      throw new BadRequestException(`Manager with ID ${createProjectDto.managerId} does not exist`);
+    if (!categoryExists) {
+      throw new BadRequestException(
+        `Category with ID ${createProjectDto.categoryId} does not exist`,
+      );
     }
 
     if (createProjectDto.deadline) {
       const deadlineDate = new Date(createProjectDto.deadline);
       if (deadlineDate < new Date()) {
-        throw new BadRequestException('DDeadline date cannot be in the past');
+        throw new BadRequestException('Deadline date cannot be in the past');
       }
     }
 
-    return await this.prisma.project.create({
+     const newProject = await this.prisma.project.create({
       data: {
         name: createProjectDto.name,
         description: createProjectDto.description,
         categoryId: createProjectDto.categoryId,
-        managerId: createProjectDto.managerId,
-        deadline: createProjectDto.deadline ? new Date(createProjectDto.deadline) : null,
+        managerId: currentUserId,
+        deadline: createProjectDto.deadline
+          ? new Date(createProjectDto.deadline)
+          : null,
+        status: ProjectStatus.NEW,
+        // MANAGERUL devine automat membru
+        users: {
+          create: {
+            userId: currentUserId,
+            userRole: UserRole.PROJECT_MANAGER,
+          },
+        },
+      },
+      include: {
+        category: { select: { name: true } },
+        manager: { select: { id: true, name: true } },
+        users: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, avatarUrl: true },
+            },
+          },
+        },
       },
     });
+    return newProject;
   }
 
   async findAll() {
     return await this.prisma.project.findMany({
       where: { deletedAt: null },
+      include: {
+        category: { select: { name: true } },
+        manager: { select: { name: true } },
+      },
     });
   }
 
@@ -56,7 +79,11 @@ export class ProjectsService {
         cursor: { id: cursor },
         skip: 1,
       }),
-      orderBy: { id: 'desc' },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        category: { select: { name: true } },
+        manager: { select: { name: true } },
+      },
     });
 
     const hasMore = projects.length > limit;
@@ -76,12 +103,34 @@ export class ProjectsService {
 
     const project = await this.prisma.project.findFirst({
       where: { id, deletedAt: null },
+      include: {
+        category: { select: { name: true } },
+        manager: { select: { name: true } },
+      },
     });
     if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
     return project;
   }
 
-  async update(id: string, updateProjectDto: UpdateProjectDto) {
+  async getProjectsCountByCategory() {
+    const counts = await this.prisma.project.groupBy({
+      by: ['categoryId'],
+      where: {
+        deletedAt: null,
+        status: { not: ProjectStatus.COMPLETED },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    return counts.map(c => ({
+      categoryId: c.categoryId,
+      projectsCount: c._count.id,
+    }));
+  }
+
+  async update(id: string, updateProjectDto: UpdateProjectDto, currentUserId: string) {
     const project = await this.findOne(id);
     if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
 
@@ -94,12 +143,13 @@ export class ProjectsService {
       }
     }
 
-    if (updateProjectDto.managerId) {
+    if (currentUserId) {
       const managerExists = await this.prisma.user.findUnique({
-        where: { id: updateProjectDto.managerId },
+        where: { id: currentUserId },
       });
+
       if (!managerExists) {
-        throw new BadRequestException(`Manager with ID ${updateProjectDto.managerId} does not exist`);
+        throw new BadRequestException(`Manager with ID ${currentUserId} does not exist`);
       }
     }
 
@@ -110,16 +160,53 @@ export class ProjectsService {
       }
     }
 
-    return await this.prisma.project.update({
+    const updatedProject = await this.prisma.project.update({
       where: { id },
       data: {
         name: updateProjectDto.name,
         description: updateProjectDto.description,
         categoryId: updateProjectDto.categoryId,
-        managerId: updateProjectDto.managerId,
+        managerId: currentUserId,
         deadline: updateProjectDto.deadline ? new Date(updateProjectDto.deadline) : undefined,
       },
+      include: {
+        category: { select: { name: true } },
+        manager: { select: { name: true } },
+      },
     });
+
+    const totalTasksCount = await this.prisma.task.count({
+      where: { projectId: id },
+    });
+
+    const incompleteTasksCount = await this.prisma.task.count({
+      where: {
+        projectId: id,
+        status: { not: TaskStatus.COMPLETED },
+      },
+    });
+
+    let newStatus = updatedProject.status;
+
+    if (totalTasksCount > 0 && incompleteTasksCount === 0) {
+      newStatus = ProjectStatus.COMPLETED;
+    } else if (totalTasksCount === 0) {
+      newStatus = ProjectStatus.NEW;
+    }
+
+    if (newStatus !== updatedProject.status) {
+      const projectWithStatus = await this.prisma.project.update({
+        where: { id },
+        data: { status: newStatus },
+        include: {
+          category: { select: { name: true } },
+          manager: { select: { name: true } },
+        },
+      });
+      return projectWithStatus;
+    }
+
+    return updatedProject;
   }
 
   async remove(id: string) {

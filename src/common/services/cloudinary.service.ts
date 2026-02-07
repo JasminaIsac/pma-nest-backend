@@ -3,16 +3,15 @@ import { Injectable } from '@nestjs/common';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
 import { Writable } from 'stream';
-import streamifier from 'streamifier';
+import * as streamifier from 'streamifier';
 
 @Injectable()
 export class CloudinaryService {
   constructor(private readonly configService: ConfigService) {
     cloudinary.config({
-      cloudinary_url: process.env.CLOUDINARY_URL,
-      // cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      // api_key: process.env.CLOUDINARY_API_KEY,
-      // api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.get('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.get('CLOUDINARY_API_SECRET'),
       secure: true,
     });
   }
@@ -43,11 +42,17 @@ export class CloudinaryService {
   }
 
   extractPublicId(url: string): string {
-    // url ex: https://res.cloudinary.com/name/image/upload/v1765481878/project-management-app/avatars/filename.jpg
-    const parts = url.split('/');
-    const fileName = parts.pop();
-    const folder = parts.slice(parts.indexOf('upload') + 1).join('/');
-    const publicId = `${folder}/${fileName?.replace(/\.[^/.]+$/, '')}`; // scoatem extensia
-    return publicId;
+    try {
+      // Ex: https://res.cloudinary.com/demo/image/upload/v1312461204/project-management-app/avatars/sample.jpg
+      const parts = url.split('/');
+      const uploadIndex = parts.indexOf('upload');
+      const publicIdWithExt = parts.slice(uploadIndex + 2).join('/'); 
+      
+      // Scoatem extensia (.jpg, .png etc)
+      return publicIdWithExt.replace(/\.[^/.]+$/, "");
+    } catch (error) {
+      console.error('Error extracting publicId:', error);
+      return '';
+    }
   }
 }

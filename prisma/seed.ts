@@ -98,16 +98,16 @@ async function main() {
 
   await prisma.category.createMany({
     data: [
-      { title: 'Web Development' },
-      { title: 'Mobile Development' },
-      { title: 'Backend Services' },
+      { name: 'Web Development' },
+      { name: 'Mobile Development' },
+      { name: 'Backend Services' },
     ],
   });
 
   const categories = await prisma.category.findMany();
-  const web = categories.find(c => c.title === 'Web Development')!;
-  const mobile = categories.find(c => c.title === 'Mobile Development')!;
-  const backend = categories.find(c => c.title === 'Backend Services')!;
+  const web = categories.find(c => c.name === 'Web Development')!;
+  const mobile = categories.find(c => c.name === 'Mobile Development')!;
+  const backend = categories.find(c => c.name === 'Backend Services')!;
 
   await prisma.project.createMany({
     data: [
@@ -155,7 +155,7 @@ async function main() {
   await prisma.task.createMany({
     data: [
       {
-        title: 'Setup project',
+        name: 'Setup project',
         projectId: ecommerce.id,
         assignedTo: dev1.id,
         priority: TaskPriority.HIGH,
@@ -163,7 +163,7 @@ async function main() {
         deadline: new Date(),
       },
       {
-        title: 'Implement auth',
+        name: 'Implement auth',
         projectId: mobileApp.id,
         assignedTo: dev2.id,
         priority: TaskPriority.MEDIUM,
@@ -176,6 +176,7 @@ async function main() {
   const conversation = await prisma.conversation.create({
     data: {
       type: ConversationType.GROUP,
+      name: 'Team Meeting',
       participants: {
         create: [
           { userId: dev1.id },

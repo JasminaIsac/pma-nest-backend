@@ -18,9 +18,9 @@ import { memoryStorage } from 'multer';
 import { LogActivity } from 'src/common/decorators/log-action.decorator';
 import { LogEntity, LogAction } from 'src/generated/prisma/client';
 
-@ApiTags('profile')
+@ApiTags('My profile')
 @UseGuards(JwtGuard) 
-@Controller('users/me')
+@Controller('me')
 export class ProfileController {
   constructor(
     private readonly usersService: UsersService,
@@ -28,10 +28,15 @@ export class ProfileController {
   ) {}
 
   @Get()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get my profile' })
   @ApiResponse({ status: 200, description: 'User profile' })
-  getMyProfile(@CurrentUser() user: JwtPayload) {
-    return this.usersService.findOne(user.userId);
+  async getMyProfile(@CurrentUser() user: JwtPayload) {
+    if (!user || !user.userId) {
+      console.error('❌ ERROR: user sau user.userId este undefined');
+      throw new BadRequestException('Invalid token payload');
+    }
+    return await this.usersService.findOne(user.userId);
   }
 
   @Patch('avatar')
@@ -50,7 +55,6 @@ export class ProfileController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('File required');
-
     const avatarUrl = await this.cloudinaryService.uploadFile(
       file.buffer,
       'project-management-app/avatars',

@@ -1,26 +1,28 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { ConversationType, ConversationParticipant as PrismaConversationParticipant } from 'src/generated/prisma/client';
+import { EncryptionService } from './services/encryption.service';
+import { ConversationType } from 'src/generated/prisma/client';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 
 @Injectable()
 export class ConversationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encryptionService: EncryptionService,
+  ) {}
 
   async create(createConversationDto: CreateConversationDto, userId: string) {
-    const participants = await this.prisma.user.findMany({
-      where: { id: { in: createConversationDto.participantIds } },
+    const participantIds = Array.from(new Set([...createConversationDto.participantIds, userId]));
+
+    const participantsInDb = await this.prisma.user.findMany({
+      where: { id: { in: participantIds } },
     });
 
-    if (participants.length !== createConversationDto.participantIds.length) {
-      throw new BadRequestException('Some participants do not exist');
+    if (participantsInDb.length !== participantIds.length) {
+      throw new BadRequestException('One or more participants do not exist');
     }
 
-    if (!createConversationDto.participantIds.includes(userId)) {
-      throw new BadRequestException('You must include yourself in the conversation');
-    }
-
-    if (createConversationDto.type === ConversationType.PRIVATE && createConversationDto.participantIds.length !== 2) {
+    if (createConversationDto.type === ConversationType.PRIVATE && participantIds.length !== 2) {
       throw new BadRequestException('A private conversation must have exactly 2 participants');
     }
 
@@ -28,24 +30,23 @@ export class ConversationsService {
       const existingPrivateConversation = await this.prisma.conversation.findFirst({
         where: {
           type: ConversationType.PRIVATE,
-          participants: {
-            every: {
-              userId: { in: createConversationDto.participantIds },
-            },
-          },
+          AND: participantIds.map(id => ({
+            participants: { some: { userId: id } }
+          }))
         },
       });
 
       if (existingPrivateConversation) {
-        throw new ConflictException('A private conversation already exists between these participants');
+        return existingPrivateConversation;
       }
     }
 
-    const conversation = await this.prisma.conversation.create({
+    return this.prisma.conversation.create({
       data: {
         type: createConversationDto.type,
+        name: createConversationDto.name || '',
         participants: {
-          create: createConversationDto.participantIds.map((id) => ({
+          create: participantIds.map((id) => ({
             userId: id,
           })),
         },
@@ -54,49 +55,47 @@ export class ConversationsService {
         participants: {
           include: {
             user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
+              select: { id: true, name: true, avatarUrl: true },
             },
           },
         },
       },
     });
-
-    return conversation;
   }
 
   async findAll(userId: string) {
-    return await this.prisma.conversation.findMany({
+    const conversations = await this.prisma.conversation.findMany({
       where: {
-        participants: {
-          some: {
-            userId,
-          },
-        },
+        participants: { some: { userId } },
         deletedAt: null,
       },
       include: {
         participants: {
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
+            user: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
         messages: {
           take: 1,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            message: true,
+            createdAt: true,
+            sender: { select: { id: true, name: true } },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return conversations.map((conv) => ({
+      ...conv,
+      messages: conv.messages.map((msg) => ({
+        ...msg,
+        message: this.encryptionService.decrypt(msg.message),
+      })),
+    }));
   }
 
   async findAllCursor(userId: string, limit = 10, cursor?: string) {
@@ -104,9 +103,7 @@ export class ConversationsService {
 
     const conversations = await this.prisma.conversation.findMany({
       where: {
-        participants: {
-          some: { userId },
-        },
+        participants: { some: { userId } },
         deletedAt: null,
       },
       take,
@@ -114,22 +111,22 @@ export class ConversationsService {
         cursor: { id: cursor },
         skip: 1,
       }),
-      orderBy: { id: 'desc' },
+      orderBy: { updatedAt: 'desc' },
       include: {
         participants: {
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
+            user: { select: { id: true, name: true, avatarUrl: true } },
           },
         },
         messages: {
           take: 1,
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            message: true,
+            createdAt: true,
+            sender: { select: { id: true, name: true } },
+          },
         },
       },
     });
@@ -137,8 +134,37 @@ export class ConversationsService {
     const hasMore = conversations.length > limit;
     const items = hasMore ? conversations.slice(0, limit) : conversations;
 
+    const cleanedItems = await Promise.all(items.map(async (conv) => {
+      // Găsim data la care utilizatorul curent a citit ultima dată această conversație
+      const currentUserParticipant = conv.participants.find(p => p.userId === userId);
+      const lastReadDate = currentUserParticipant?.lastReadAt || new Date(0);
+
+      // Numărăm mesajele necitite
+      const unreadCount = await this.prisma.conversationMessage.count({
+        where: {
+          conversationId: conv.id,
+          senderId: { not: userId },
+          createdAt: { gt: lastReadDate },
+        },
+      });
+
+      const lastMessage = conv.messages[0] ? {
+        ...conv.messages[0],
+        message: this.encryptionService.decrypt(conv.messages[0].message)
+      } : null;
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { messages, ...rest } = conv;
+
+      return {
+        ...rest,
+        lastMessage,
+        unreadCount,
+      };
+    }));
+
     return {
-      items,
+      items: cleanedItems,
       nextCursor: hasMore ? items[items.length - 1].id : null,
       hasMore,
     };
@@ -154,24 +180,12 @@ export class ConversationsService {
       include: {
         participants: {
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
+            user: { select: { id: true, name: true, avatarUrl: true, status: true } },
           },
         },
         messages: {
           include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
+            sender: { select: { id: true, name: true, avatarUrl: true } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -182,26 +196,24 @@ export class ConversationsService {
       throw new NotFoundException(`The conversation with ID ${id} was not found`);
     }
 
-    const participants = conversation?.participants as PrismaConversationParticipant[];
-    const isParticipant = participants.some(p => p.userId === userId);
-
+    const isParticipant = conversation.participants.some(p => p.userId === userId);
     if (!isParticipant) {
       throw new BadRequestException('You do not have access to this conversation');
     }
 
-    await this.prisma.conversationParticipant.update({
-      where: {
-        conversationId_userId: {
-          conversationId: id,
-          userId,
-        },
-      },
-      data: {
-        lastReadAt: new Date(),
-      },
-    });
+    // Actualizăm lastReadAt asincron
+    this.prisma.conversationParticipant.update({
+      where: { conversationId_userId: { conversationId: id, userId } },
+      data: { lastReadAt: new Date() },
+    }).catch(err => console.error('Failed to update lastReadAt', err));
 
-    return conversation;
+    return {
+      ...conversation,
+      messages: conversation.messages.map(msg => ({
+        ...msg,
+        message: this.encryptionService.decrypt(msg.message)
+      }))
+    };
   }
 
   async remove(id: string, userId: string) {

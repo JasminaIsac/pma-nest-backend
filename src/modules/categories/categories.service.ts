@@ -11,15 +11,26 @@ export class CategoriesService {
 
   async create(createCategoryDto: CreateCategoryDto) {
     const existingCategory = await this.prisma.category.findUnique({
-      where: { title: createCategoryDto.title },
+      where: { name: createCategoryDto.name },
     });
+
     if (existingCategory) {
-      throw new ConflictException(`A category with the title "${createCategoryDto.title}" already exists.`);
+      if (existingCategory.deletedAt === null) {
+        throw new ConflictException('Category already exists');
+      }
+      
+      existingCategory.deletedAt = null;
+      const restoredCategory = await this.prisma.category.update({
+        where: { id: existingCategory.id },
+        data: { deletedAt: null },
+      });
+      // flag pentru frontend
+      return { ...restoredCategory, isRestored: true };
     }
 
     return await this.prisma.category.create({
       data: {
-        title: createCategoryDto.title,
+        name: createCategoryDto.name,
       },
     });
   }
@@ -50,12 +61,12 @@ export class CategoriesService {
       throw new NotFoundException(`The category with ID ${id} was not found`);
     }
 
-    if (updateCategoryDto.title && updateCategoryDto.title !== category.title) {
+    if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
       const existingCategory = await this.prisma.category.findUnique({
-        where: { title: updateCategoryDto.title },
+        where: { name: updateCategoryDto.name },
       });
       if (existingCategory) {
-        throw new ConflictException(`A category with the title "${updateCategoryDto.title}" already exists.`);
+        throw new ConflictException(`A category with the name "${updateCategoryDto.name}" already exists.`);
       }
     }
 
