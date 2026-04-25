@@ -5,6 +5,16 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { EncryptionService } from './services/encryption.service';
 import { ConversationMessage } from 'src/generated/prisma/client';
 
+function parseMentions(encryptedMentionsData: string | null, encryptionService: EncryptionService): object[] {
+  if (!encryptedMentionsData) return [];
+  try {
+    const decrypted = encryptionService.decrypt(encryptedMentionsData);
+    return JSON.parse(decrypted) as object[];
+  } catch {
+    return [];
+  }
+}
+
 export interface Participant {
   id: string;
   conversationId: string;
@@ -60,6 +70,7 @@ export class MessagesService {
           sender: {
             select: { id: true, name: true, avatarUrl: true },
           },
+          attachments: true,
         },
       }),
       // Actualizăm lastReadAt pentru expeditor deodată
@@ -82,6 +93,7 @@ export class MessagesService {
     return {
       ...message,
       message: this.encryptionService.decrypt(message.message),
+      mentions: parseMentions(message.mentionsData ?? null, this.encryptionService),
     };
   }
 
@@ -115,6 +127,7 @@ export class MessagesService {
             status: true
           },
         },
+        attachments: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -122,6 +135,7 @@ export class MessagesService {
     return messages.map((msg) => ({
       ...msg,
       message: this.encryptionService.decrypt(msg.message),
+      mentions: parseMentions(msg.mentionsData ?? null, this.encryptionService),
     }));
   }
 
@@ -174,13 +188,14 @@ export class MessagesService {
       }),
       orderBy: { createdAt: 'desc' },
       include: {
-        sender: { 
-          select: { 
-            id: true, 
-            name: true, 
-            avatarUrl: true 
-          } 
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true
+          }
         },
+        attachments: true,
       },
     });
 
@@ -191,6 +206,7 @@ export class MessagesService {
       items: items.map(msg => ({
         ...msg,
         message: this.encryptionService.decrypt(msg.message),
+        mentions: parseMentions(msg.mentionsData ?? null, this.encryptionService),
       })),
       nextCursor: hasMore ? items[items.length - 1].id : null,
       hasMore,
@@ -218,6 +234,7 @@ export class MessagesService {
             avatarUrl: true,
           },
         },
+        attachments: true,
       },
     });
 
@@ -234,6 +251,7 @@ export class MessagesService {
     return {
       ...message,
       message: this.encryptionService.decrypt(message.message),
+      mentions: parseMentions(message.mentionsData ?? null, this.encryptionService),
     };
   }
 

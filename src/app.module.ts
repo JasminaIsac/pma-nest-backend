@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from 'prisma/prisma.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggingInterceptor } from './common/interceptors/audit-log.interceptor';
+import { DebugLoggingInterceptor } from './common/interceptors/debug-logging.interceptor';
 import { LogsModule } from './modules/logs/logs.module';
 import { AppService } from './app.service';
 
@@ -44,6 +45,10 @@ import { AppService } from './app.service';
   ],
   controllers: [AppController],
   providers: [ AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: DebugLoggingInterceptor,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,

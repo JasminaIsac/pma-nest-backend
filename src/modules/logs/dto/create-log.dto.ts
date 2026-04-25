@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsEnum } from 'class-validator';
 import { LogAction, LogEntity } from 'src/generated/prisma/client';
-import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
+import { UUIDv4Property } from 'src/common/decorators/uuidv4property.decorator';
 
 export class CreateLogDto {
   @UUIDv4Property()

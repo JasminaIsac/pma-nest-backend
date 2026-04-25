@@ -55,6 +55,12 @@ enum MessageStatus {
   READ     @map("read")
 }
 
+enum AttachmentType {
+  IMAGE    @map("image")
+  VIDEO    @map("video")
+  DOCUMENT @map("document")
+}
+
 enum LogAction {
   CREATE
   UPDATE
@@ -84,8 +90,9 @@ model User {
   avatarUrl         String?              @map("avatar_url")
   deletedAt         DateTime?            @map("deleted_at")
 
-  messagesSent      ConversationMessage[] @relation("MessageSender")
-  conversations     ConversationParticipant[]
+  messagesSent         ConversationMessage[]    @relation("MessageSender")
+  conversations        ConversationParticipant[]
+  conversationsAsAdmin Conversation[]           @relation("ConversationAdmin")
   tasks             Task[] 
   projectsManaged   Project[]            @relation("ManagerProjects")
   usersToProjects   UsersToProjects[]
@@ -98,10 +105,13 @@ model Conversation {
   id            String                  @id @default(uuid()) @db.Uuid
   name          String
   type          ConversationType
+  adminId       String?                 @map("admin_id") @db.Uuid
+  coverUrl      String?                 @map("cover_url")
   createdAt     DateTime                @default(now()) @map("created_at")
   updatedAt     DateTime                @updatedAt @map("updated_at")
   deletedAt     DateTime?               @map("deleted_at")
 
+  admin         User?                   @relation("ConversationAdmin", fields: [adminId], references: [id])
   participants  ConversationParticipant[]
   messages      ConversationMessage[]
 
@@ -128,12 +138,30 @@ model ConversationMessage {
   sender         User           @relation("MessageSender", fields: [senderId], references: [id])
   senderId       String         @map("sender_id") @db.Uuid
   message        String
+  mentionsData   String?        @map("mentions_data")
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   status         MessageStatus  @default(SENT)
   deletedAt      DateTime?      @map("deleted_at")
 
+  attachments    MessageAttachment[]
+
   @@map("messages")
+}
+
+model MessageAttachment {
+  id           String              @id @default(uuid()) @db.Uuid
+  messageId    String?             @map("message_id") @db.Uuid
+  message      ConversationMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  cloudinaryId String              @map("cloudinary_id")
+  url          String
+  type         AttachmentType
+  filename     String
+  mimeType     String              @map("mime_type")
+  size         Int
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  @@map("message_attachments")
 }
 
 model Category {

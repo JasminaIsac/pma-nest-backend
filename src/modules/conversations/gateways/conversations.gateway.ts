@@ -8,9 +8,25 @@ import {
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from 'prisma/prisma.service';
 import { EncryptionService } from '../services/encryption.service';
+import { AttachmentsService } from '../attachments.service';
 import { MessageStatus } from 'src/generated/prisma/client';
 import { JoinConversationDto } from '../dto/join-conversation.dto';
 import { SendMessageDto } from '../dto/send-message.dto';
+
+export interface MentionData {
+  id: string;
+  name: string;
+  type: 'project';
+}
+
+export interface AttachmentDto {
+  id: string;
+  url: string;
+  type: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
 
 export interface DecryptedMessage {
   id: string;
@@ -24,6 +40,8 @@ export interface DecryptedMessage {
     name: string;
     avatarUrl: string | null;
   };
+  attachments: AttachmentDto[];
+  mentions: MentionData[];
 }
 
 export interface SendMessageResponse {
@@ -42,6 +60,7 @@ export class ConversationsGateway {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryptionService: EncryptionService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   @SubscribeMessage('join_user_room')
@@ -49,13 +68,10 @@ export class ConversationsGateway {
     @MessageBody() payload: { userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    // Clientul se alătură unei camere private: user_uuid
-    // Aceasta permite primirea update-urilor de Inbox chiar dacă nu este într-o conversație specifică
     await client.join(`user_${payload.userId}`);
   }
 
   @SubscribeMessage('join_conversation')
-
   async handleJoinConversation(
     @MessageBody() payload: JoinConversationDto,
     @ConnectedSocket() client: Socket,
@@ -71,38 +87,78 @@ export class ConversationsGateway {
     @ConnectedSocket() _client: Socket,
   ): Promise<SendMessageResponse> {
     try {
-      // Criptăm mesajul pentru baza de date
-      const encryptedMessage = this.encryptionService.encrypt(payload.message);
+      const messageText = payload.message || '';
 
-      // Salvăm în DB și includem relațiile necesare pentru UI
+      // Criptăm mesajul pentru baza de date
+      const encryptedMessage = this.encryptionService.encrypt(messageText);
+
+      // Criptăm mentionsData dacă există
+      const encryptedMentionsData = payload.mentionsData
+        ? this.encryptionService.encrypt(payload.mentionsData)
+        : null;
+
+      // Salvăm în DB
       const savedMessage = await this.prisma.conversationMessage.create({
         data: {
           conversationId: payload.conversationId,
           senderId: payload.senderId,
           message: encryptedMessage,
+          mentionsData: encryptedMentionsData,
           status: MessageStatus.SENT,
         },
         include: {
           conversation: {
-            include: { participants: true }
+            include: { participants: true },
           },
-          sender: { 
-            select: { id: true, name: true, avatarUrl: true } 
-          }
-        }
+          sender: {
+            select: { id: true, name: true, avatarUrl: true },
+          },
+        },
       });
 
-      // Creăm obiectul decriptat pentru emisie (folosim textul original din payload)
+      // Legăm attachment-urile de mesaj dacă există
+      if (payload.attachmentIds && payload.attachmentIds.length > 0) {
+        await this.attachmentsService.linkToMessage(payload.attachmentIds, savedMessage.id);
+      }
+
+      // Fetch attachment-urile legate
+      const attachments = await this.attachmentsService.findByMessage(savedMessage.id);
+
+      // Parsăm mentions
+      let mentions: MentionData[] = [];
+      if (payload.mentionsData) {
+        try {
+          mentions = JSON.parse(payload.mentionsData) as MentionData[];
+        } catch {
+          mentions = [];
+        }
+      }
+
+      // Construim mesajul decriptat pentru emisie
       const decryptedMessage: DecryptedMessage = {
-        ...savedMessage,
-        message: payload.message, // Suprascriem hash-ul cu textul clar
+        id: savedMessage.id,
+        conversationId: savedMessage.conversationId,
+        senderId: savedMessage.senderId,
+        message: messageText,
+        status: savedMessage.status,
+        createdAt: savedMessage.createdAt,
+        sender: savedMessage.sender,
+        attachments: attachments.map((a) => ({
+          id: a.id,
+          url: a.url,
+          type: a.type,
+          filename: a.filename,
+          mimeType: a.mimeType,
+          size: a.size,
+        })),
+        mentions,
       };
 
-      // Emitem către camera de conversație (pentru cei care au chat-ul deschis)
+      // Emitem către camera de conversație
       const roomName = `conversation_${payload.conversationId}`;
       this.server.to(roomName).emit('receive_message', decryptedMessage);
 
-      // Emitem către camerele individuale ale participanților
+      // Emitem towards camerele individuale ale participanților
       savedMessage.conversation.participants.forEach((participant) => {
         this.server.to(`user_${participant.userId}`).emit('conversation_updated', {
           conversationId: payload.conversationId,
@@ -111,7 +167,6 @@ export class ConversationsGateway {
       });
 
       return { status: 'ok', message: decryptedMessage };
-      
     } catch (err) {
       console.error('Socket SendMessage Error:', err);
       return { status: 'error', error: 'Failed to send message' };
@@ -127,7 +182,6 @@ export class ConversationsGateway {
     try {
       const lastReadAt = new Date();
 
-      // Actualizăm în baza de date momentul în care participantul a citit
       await this.prisma.conversationParticipant.update({
         where: {
           conversationId_userId: {
@@ -138,7 +192,6 @@ export class ConversationsGateway {
         data: { lastReadAt },
       });
 
-      // Notificăm TOȚI ceilalți din cameră că acest user a citit mesajele
       const roomName = `conversation_${payload.conversationId}`;
       this.server.to(roomName).emit('user_read_update', {
         userId: payload.userId,

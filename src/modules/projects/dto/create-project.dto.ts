@@ -7,7 +7,7 @@ import {
   IsDateString
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
+import { UUIDv4Property } from 'src/common/decorators/uuidv4property.decorator';
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'Project Alpha', minLength: 3, maxLength: 255 })

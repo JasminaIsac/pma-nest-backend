@@ -37,6 +37,32 @@ export class CloudinaryService {
     });
   }
 
+  async uploadRawFile(
+    fileBuffer: Buffer,
+    folder: string,
+    resourceType: 'image' | 'video' | 'raw',
+  ): Promise<{ url: string; publicId: string; bytes: number }> {
+    return new Promise((resolve, reject) => {
+      const stream: Writable = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: resourceType,
+        },
+        (error: Error | undefined, result: UploadApiResponse) => {
+          if (error) return reject(new Error(error.message));
+          if (!result.secure_url) return reject(new Error('No secure_url returned by Cloudinary'));
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+            bytes: result.bytes,
+          });
+        },
+      );
+
+      streamifier.createReadStream(fileBuffer).pipe(stream);
+    });
+  }
+
    async deleteFile(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId);
   }

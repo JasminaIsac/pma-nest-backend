@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { EncryptionService } from './services/encryption.service';
+import { CloudinaryService } from 'src/common/services/cloudinary.service';
 import { ConversationType } from 'src/generated/prisma/client';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 
@@ -9,6 +10,7 @@ export class ConversationsService {
   constructor(
     private prisma: PrismaService,
     private encryptionService: EncryptionService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(createConversationDto: CreateConversationDto, userId: string) {
@@ -41,10 +43,14 @@ export class ConversationsService {
       }
     }
 
+    // Creatorul devine admin pentru grupuri
+    const adminId = createConversationDto.type === ConversationType.GROUP ? userId : null;
+
     return this.prisma.conversation.create({
       data: {
         type: createConversationDto.type,
         name: createConversationDto.name || '',
+        adminId,
         participants: {
           create: participantIds.map((id) => ({
             userId: id,
@@ -225,6 +231,165 @@ export class ConversationsService {
     return await this.prisma.conversation.update({
       where: { id },
       data: { deletedAt: new Date() },
+    });
+  }
+
+  // ─── Metodele de management grup ───────────────────────────────────────────
+
+  private async getGroupAsAdmin(id: string, userId: string) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id, deletedAt: null },
+      include: { participants: { orderBy: { joinedAt: 'asc' } } },
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
+    if (conv.type !== ConversationType.GROUP) throw new BadRequestException('This operation is only for group conversations');
+
+    const adminId = (conv as any).adminId as string | null;
+    const adminStillInGroup = adminId ? conv.participants.some(p => p.userId === adminId) : false;
+    const effectiveAdminId = adminStillInGroup && adminId
+      ? adminId
+      : conv.participants[0]?.userId ?? null;
+
+    if (effectiveAdminId !== userId) throw new ForbiddenException('Only the group admin can perform this action');
+    return conv;
+  }
+
+  private async getGroupAsParticipant(id: string, userId: string) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id, deletedAt: null },
+      include: { participants: true },
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
+    if (conv.type !== ConversationType.GROUP) throw new BadRequestException('This operation is only for group conversations');
+    const isParticipant = conv.participants.some((p) => p.userId === userId);
+    if (!isParticipant) throw new ForbiddenException('You are not a participant in this conversation');
+    return conv;
+  }
+
+  async updateName(id: string, name: string, userId: string) {
+    await this.getGroupAsParticipant(id, userId);
+    return this.prisma.conversation.update({
+      where: { id },
+      data: { name },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } } },
+    });
+  }
+
+  async updateCover(id: string, fileBuffer: Buffer, userId: string) {
+    const conv = await this.getGroupAsParticipant(id, userId);
+
+    // Ștergem imaginea veche din Cloudinary
+    const existingCoverUrl = (conv as any).coverUrl as string | null;
+    if (existingCoverUrl) {
+      const publicId = this.cloudinaryService.extractPublicId(existingCoverUrl);
+      if (publicId) await this.cloudinaryService.deleteFile(publicId).catch(() => {});
+    }
+
+    const uploaded = await this.cloudinaryService.uploadRawFile(
+      fileBuffer,
+      'project-management-app/group-covers',
+      'image',
+    );
+
+    return this.prisma.conversation.update({
+      where: { id },
+      data: { coverUrl: uploaded.url },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } } },
+    });
+  }
+
+  async deleteCover(id: string, userId: string) {
+    const conv = await this.getGroupAsParticipant(id, userId);
+    const existingCoverUrl = (conv as any).coverUrl as string | null;
+
+    if (existingCoverUrl) {
+      const publicId = this.cloudinaryService.extractPublicId(existingCoverUrl);
+      if (publicId) await this.cloudinaryService.deleteFile(publicId).catch(() => {});
+    }
+
+    return this.prisma.conversation.update({
+      where: { id },
+      data: { coverUrl: null },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } } },
+    });
+  }
+
+  async addParticipants(id: string, participantIds: string[], userId: string) {
+    await this.getGroupAsAdmin(id, userId);
+
+    const users = await this.prisma.user.findMany({ where: { id: { in: participantIds } } });
+    if (users.length !== participantIds.length) throw new BadRequestException('One or more users not found');
+
+    // Găsim utilizatorii care nu sunt deja participanți
+    const existing = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId: id, userId: { in: participantIds } },
+    });
+    const existingIds = new Set(existing.map(p => p.userId));
+    const toAdd = participantIds.filter(uid => !existingIds.has(uid));
+
+    if (toAdd.length > 0) {
+      await this.prisma.conversationParticipant.createMany({
+        data: toAdd.map(uid => ({ conversationId: id, userId: uid })),
+      });
+    }
+
+    return this.prisma.conversation.findUnique({
+      where: { id },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true, status: true } } } } },
+    });
+  }
+
+  async removeParticipant(id: string, targetUserId: string, userId: string) {
+    await this.getGroupAsAdmin(id, userId);
+
+    if (targetUserId === userId) throw new BadRequestException('Use leave endpoint to leave the group');
+
+    await this.prisma.conversationParticipant.deleteMany({
+      where: { conversationId: id, userId: targetUserId },
+    });
+
+    return this.prisma.conversation.findUnique({
+      where: { id },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true, status: true } } } } },
+    });
+  }
+
+  async leaveConversation(id: string, userId: string) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id, deletedAt: null },
+      include: { participants: { orderBy: { joinedAt: 'asc' } } },
+    });
+    if (!conv) throw new NotFoundException('Conversation not found');
+
+    const isParticipant = conv.participants.some(p => p.userId === userId);
+    if (!isParticipant) throw new BadRequestException('You are not a participant');
+
+    const isAdmin = (conv as any).adminId === userId;
+    const remaining = conv.participants.filter(p => p.userId !== userId);
+
+    // Ștergem participantul
+    await this.prisma.conversationParticipant.deleteMany({
+      where: { conversationId: id, userId },
+    });
+
+    if (remaining.length === 0) {
+      // Ultimul participant — ștergem conversația
+      return this.prisma.conversation.update({ where: { id }, data: { deletedAt: new Date() } });
+    }
+
+    if (isAdmin && conv.type === ConversationType.GROUP) {
+      // Transferăm admin la participantul cu joinedAt cel mai vechi (primul în listă)
+      const newAdmin = remaining[0];
+      return this.prisma.conversation.update({
+        where: { id },
+        data: { adminId: newAdmin.userId },
+        include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } } },
+      });
+    }
+
+    return this.prisma.conversation.findUnique({
+      where: { id },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatarUrl: true } } } } },
     });
   }
 }

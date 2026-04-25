@@ -1,7 +1,7 @@
 import { IsEnum, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from 'src/generated/prisma/enums';
-import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
+import { UUIDv4Property } from 'src/common/decorators/uuidv4property.decorator';
 
 export class CreateUserToProjectDto {
   @UUIDv4Property()

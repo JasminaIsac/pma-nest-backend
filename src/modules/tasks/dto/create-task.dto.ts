@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskPriority } from 'src/generated/prisma/client';
-import { UUIDv4Property } from 'src/modules/auth/decorators/uuidv4property.decorator';
+import { UUIDv4Property } from 'src/common/decorators/uuidv4property.decorator';
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Authentification with JWT', minLength: 3, maxLength: 200 })
